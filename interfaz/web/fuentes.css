@@ -1,0 +1,19 @@
+/*
+  Fuentes servidas desde este mismo equipo (sin Google Fonts en línea).
+  Licencia SIL OFL 1.1: ver vendor/fuentes/*-OFL.txt.
+  El mapa exportado no usa este archivo: lleva las fuentes dentro (base64).
+*/
+
+@font-face {
+  font-family: "Familjen Grotesk";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("vendor/fuentes/FamiljenGrotesk.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Fira Code";
+  font-weight: 300 700;
+  font-display: swap;
+  src: url("vendor/fuentes/FiraCode.ttf") format("truetype");
+}

@@ -1,0 +1,1046 @@
+/*
+  Estilos de la interfaz: mapa a pantalla completa como protagonista y
+  dos paneles flotantes (controles a la izquierda, resultados a la derecha)
+  con bordes finos y esquinas casi rectas. Colores y medidas: tokens.css.
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente-texto);
+  font-size: var(--texto-s);
+  line-height: var(--interlineado);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cifras: monoespaciada con dígitos de igual ancho (las columnas se alinean). */
+.cifras,
+input[type="number"],
+kbd {
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+  font-variant-ligatures: none;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 4px;
+  border: var(--borde) solid var(--linea-fuerte);
+  border-radius: var(--radio-1);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--texto-2);
+}
+
+:focus-visible {
+  outline: 2px solid var(--anillo);
+  outline-offset: 2px;
+}
+
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Enlace para saltar directo a los controles con el teclado. */
+.saltar {
+  position: fixed;
+  top: -60px;
+  left: var(--margen-flotante);
+  z-index: 2000;
+  padding: var(--espacio-2) var(--espacio-3);
+  background: var(--acento);
+  color: var(--sobre-acento);
+  font-weight: 600;
+}
+
+.saltar:focus {
+  top: var(--margen-flotante);
+}
+
+/* ---------- Mapa ---------- */
+
+.mapa {
+  position: fixed;
+  inset: 0;
+}
+
+/* Los controles de Leaflet se corren para no quedar debajo de los paneles abiertos. */
+.leaflet-left,
+.leaflet-right {
+  transition: left var(--duracion-media) var(--curva), right var(--duracion-media) var(--curva);
+}
+
+body.controles-abierto .leaflet-left {
+  left: calc(var(--ancho-controles) + var(--margen-flotante));
+}
+
+body.resultados-abierto .leaflet-right {
+  right: calc(var(--ancho-resultados) + var(--margen-flotante));
+}
+
+.leaflet-top {
+  top: 0;
+}
+
+/* ---------- Barra superior (siempre visible: aquí vive el botón para reabrir el panel) ---------- */
+
+.barra {
+  position: fixed;
+  top: var(--margen-flotante);
+  left: var(--margen-flotante);
+  z-index: 1200;
+  display: flex;
+  align-items: stretch;
+  height: var(--alto-barra);
+  background: var(--superficie);
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-2);
+}
+
+.marca-app {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  padding: 0 var(--espacio-3);
+  border-right: var(--borde) solid var(--linea);
+}
+
+/* Sello: un cuadrado lima con un corte; la única pieza "de marca". */
+.marca-app-sello {
+  width: 14px;
+  height: 14px;
+  background: var(--acento);
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 62% 100%, 0 100%);
+}
+
+.marca-app-nombre {
+  font-size: var(--texto-m);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.marca-app-sub {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+  letter-spacing: 0.02em;
+}
+
+.boton-barra {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-width: var(--objetivo-tactil);
+  padding: 0 var(--espacio-3);
+  border: 0;
+  border-right: var(--borde) solid var(--linea);
+  background: transparent;
+  color: var(--texto-2);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--duracion-corta) var(--curva), background var(--duracion-corta) var(--curva);
+}
+
+.boton-barra:last-child {
+  border-right: 0;
+}
+
+.boton-barra:hover {
+  color: var(--texto);
+  background: var(--superficie-2);
+}
+
+/* Botón activo (panel abierto): texto pleno y una raya lima debajo. */
+.boton-barra[aria-expanded="true"] {
+  color: var(--texto);
+  box-shadow: inset 0 -2px 0 var(--acento);
+}
+
+.boton-icono {
+  justify-content: center;
+  padding: 0;
+  width: var(--alto-barra);
+}
+
+.icono {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.icono-relleno {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ---------- Paneles flotantes ---------- */
+
+.panel {
+  position: fixed;
+  z-index: 1100;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--superficie);
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--linea-fuerte) transparent;
+  /* Al abrir: aparece de inmediato y se desliza. */
+  transition: transform var(--duracion-media) var(--curva), visibility 0s linear 0s;
+}
+
+/*
+  Panel cerrado: se desliza fuera y queda "visibility: hidden" al terminar
+  (así sus campos salen del orden del tabulador). El botón para volver a
+  abrirlo está en la barra superior, que nunca se oculta.
+*/
+.panel.cerrado {
+  visibility: hidden;
+  transition: transform var(--duracion-media) var(--curva), visibility 0s linear var(--duracion-media);
+}
+
+/* Los paneles miden lo que su contenido (con tope de la pantalla): un estado corto no deja un bloque vacío. */
+.panel-controles {
+  top: calc(var(--margen-flotante) + var(--alto-barra) + var(--espacio-2));
+  left: var(--margen-flotante);
+  max-height: calc(100vh - var(--alto-barra) - var(--espacio-2) - 2 * var(--margen-flotante));
+  width: var(--ancho-controles);
+}
+
+.panel-controles.cerrado {
+  transform: translateX(calc(-100% - 2 * var(--margen-flotante)));
+}
+
+.panel-resultados {
+  top: var(--margen-flotante);
+  right: var(--margen-flotante);
+  max-height: calc(100vh - 2 * var(--margen-flotante));
+  width: var(--ancho-resultados);
+}
+
+.panel-resultados.cerrado {
+  transform: translateX(calc(100% + 2 * var(--margen-flotante)));
+}
+
+/* ---------- Formulario ---------- */
+
+.formulario {
+  margin: 0;
+}
+
+.bloque {
+  padding: var(--espacio-4);
+  border-bottom: var(--borde) solid var(--linea);
+}
+
+.bloque-cabecera {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.rotulo {
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-2);
+}
+
+.campo {
+  display: grid;
+  gap: var(--espacio-1);
+}
+
+.campo + .campo {
+  margin-top: var(--espacio-3);
+}
+
+.campo-nombre {
+  font-size: var(--texto-xs);
+  color: var(--texto-2);
+}
+
+.campo-en-linea {
+  grid-template-columns: 1fr 72px auto;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
+select,
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  min-height: var(--objetivo-tactil);
+  padding: 0 var(--espacio-3);
+  background: var(--superficie-2);
+  color: var(--texto);
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-1);
+  font-size: var(--texto-s);
+  font-family: inherit;
+}
+
+input[type="number"] {
+  font-family: var(--fuente-cifras);
+}
+
+select:hover,
+input[type="text"]:hover,
+input[type="number"]:hover {
+  border-color: var(--linea-fuerte);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--peligro);
+}
+
+.bloque-ruta {
+  margin-top: var(--espacio-3);
+}
+
+.ayuda {
+  margin: var(--espacio-2) 0 0;
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.ayuda:empty {
+  display: none;
+}
+
+.aviso {
+  color: var(--aviso);
+}
+
+.mensaje-error {
+  margin: var(--espacio-2) 0 0;
+  padding: var(--espacio-2) var(--espacio-3);
+  border-left: 2px solid var(--peligro);
+  background: var(--peligro-tenue);
+  color: var(--texto);
+  font-size: var(--texto-xs);
+}
+
+/* Presupuesto: cifra grande editable + deslizador. */
+.presupuesto {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
+.presupuesto input {
+  font-size: var(--texto-l);
+  font-weight: 500;
+  height: 44px;
+}
+
+.unidad {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.rango {
+  width: 100%;
+  height: var(--objetivo-tactil);
+  margin: var(--espacio-1) 0 0;
+  accent-color: var(--relleno);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Pesos: una fila por tipo con su forma, nombre y botones − / +. */
+.pesos {
+  display: grid;
+  gap: var(--espacio-2);
+}
+
+.peso {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
+.peso-nombre {
+  display: grid;
+  line-height: 1.2;
+}
+
+.peso-nombre small {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.contador {
+  display: grid;
+  grid-template-columns: var(--objetivo-tactil) 56px var(--objetivo-tactil);
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-1);
+  overflow: hidden;
+}
+
+.contador button {
+  min-height: var(--objetivo-tactil);
+  border: 0;
+  background: var(--superficie-2);
+  color: var(--texto);
+  font-family: var(--fuente-cifras);
+  font-size: var(--texto-m);
+  cursor: pointer;
+}
+
+.contador button:hover {
+  background: var(--superficie-3);
+}
+
+.contador input {
+  min-height: var(--objetivo-tactil);
+  padding: 0;
+  border: 0;
+  border-left: var(--borde) solid var(--linea);
+  border-right: var(--borde) solid var(--linea);
+  border-radius: 0;
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.contador input::-webkit-inner-spin-button,
+.contador input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Métodos: 4 opciones; la elegida se invierte (texto claro sobre oscuro o al revés). */
+.metodos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--espacio-1);
+}
+
+.metodo {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-height: 48px;
+  padding: var(--espacio-2) var(--espacio-3);
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-1);
+  cursor: pointer;
+  transition: background var(--duracion-corta) var(--curva), border-color var(--duracion-corta) var(--curva);
+}
+
+.metodo:hover {
+  border-color: var(--linea-fuerte);
+}
+
+.metodo input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.metodo-nombre {
+  font-weight: 600;
+}
+
+.metodo-detalle {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.metodo:has(input:checked) {
+  background: var(--texto);
+  border-color: var(--texto);
+  color: var(--superficie);
+}
+
+.metodo:has(input:checked) .metodo-detalle {
+  color: var(--superficie-3);
+}
+
+.metodo:has(input:focus-visible) {
+  outline: 2px solid var(--anillo);
+  outline-offset: 2px;
+}
+
+.limite {
+  margin-top: var(--espacio-3);
+}
+
+.limite[hidden] {
+  display: none;
+}
+
+.enlace {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--texto-2);
+  font: inherit;
+  font-size: var(--texto-xs);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.enlace:hover {
+  color: var(--texto);
+}
+
+/* ---------- Botones ---------- */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--espacio-2);
+  min-height: var(--objetivo-tactil);
+  padding: 0 var(--espacio-3);
+  border-radius: var(--radio-1);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duracion-corta) var(--curva), border-color var(--duracion-corta) var(--curva),
+    transform var(--duracion-corta) var(--curva);
+}
+
+.boton:active {
+  transform: translateY(1px);
+}
+
+.boton:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.boton-principal {
+  width: 100%;
+  min-height: 48px;
+  border: var(--borde) solid var(--borde-acento);
+  background: var(--acento);
+  color: var(--sobre-acento);
+  font-size: var(--texto-m);
+}
+
+.boton-principal kbd {
+  border-color: rgba(10, 11, 13, 0.35);
+  color: var(--sobre-acento);
+}
+
+.boton-principal:hover {
+  filter: brightness(1.06);
+}
+
+.boton-secundario {
+  border: var(--borde) solid var(--linea-fuerte);
+  background: transparent;
+  color: var(--texto);
+}
+
+.boton-secundario:hover {
+  background: var(--superficie-2);
+}
+
+.accion {
+  position: sticky;
+  bottom: 0;
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--superficie);
+  border-bottom: var(--borde) solid var(--linea);
+}
+
+.atajos {
+  margin: 0;
+  padding: var(--espacio-3) var(--espacio-4);
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+/* ---------- Resultados ---------- */
+
+.estado,
+.resultado {
+  padding: var(--espacio-4);
+}
+
+.estado-titulo {
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-l);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.estado-texto {
+  margin: 0 0 var(--espacio-3);
+  color: var(--texto-2);
+}
+
+.estado-error {
+  border-left: 2px solid var(--peligro);
+}
+
+.carga-reloj {
+  display: flex;
+  align-items: baseline;
+  gap: var(--espacio-2);
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-xl);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+#carga-limite {
+  font-size: var(--texto-m);
+  color: var(--texto-3);
+  letter-spacing: 0;
+}
+
+.barra-progreso,
+.barra-medidor {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  background: var(--superficie-3);
+  border-radius: 1px;
+}
+
+.barra-progreso span,
+.barra-medidor span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--relleno);
+}
+
+/* Sin límite conocido la barra no puede medir avance: una franja recorre la pista. */
+.barra-progreso.indeterminada span {
+  width: 30%;
+  animation: recorrer 1.1s var(--curva) infinite;
+}
+
+@keyframes recorrer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(340%); }
+}
+
+.resultado-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--espacio-3);
+}
+
+.meta {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.sello {
+  flex: none;
+  padding: 2px var(--espacio-2);
+  border: var(--borde) solid var(--borde-acento);
+  border-radius: var(--radio-1);
+  color: var(--acento-texto);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sello.no-certificado {
+  border-color: var(--aviso);
+  color: var(--aviso);
+}
+
+.aviso-cambio {
+  margin: var(--espacio-3) 0 0;
+  padding: var(--espacio-2) var(--espacio-3);
+  border-left: 2px solid var(--aviso);
+  background: var(--superficie-2);
+  font-size: var(--texto-xs);
+}
+
+.valor {
+  display: grid;
+  margin: var(--espacio-4) 0 var(--espacio-3);
+}
+
+.valor-cifra {
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--texto-xl);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.valor-rotulo {
+  margin-top: var(--espacio-1);
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.medidor-fila {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--espacio-1);
+  font-size: var(--texto-xs);
+  color: var(--texto-2);
+}
+
+.medidor-fila .cifras {
+  color: var(--texto);
+}
+
+.datos-cortos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: var(--espacio-4) 0 0;
+  border-top: var(--borde) solid var(--linea);
+  border-bottom: var(--borde) solid var(--linea);
+}
+
+.datos-cortos div {
+  padding: var(--espacio-2) 0;
+}
+
+.datos-cortos div + div {
+  padding-left: var(--espacio-3);
+  border-left: var(--borde) solid var(--linea);
+}
+
+.datos-cortos dt {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.datos-cortos dd {
+  margin: 0;
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--texto-m);
+}
+
+.seccion {
+  margin-top: var(--espacio-5);
+}
+
+/* Cobertura por tipo: forma + nombre, cifras y una barra fina del color del tipo. */
+.cobertura {
+  display: grid;
+  gap: var(--espacio-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cobertura-fila {
+  display: grid;
+  grid-template-columns: 16px 1fr auto auto;
+  align-items: center;
+  column-gap: var(--espacio-2);
+  row-gap: var(--espacio-1);
+}
+
+.cobertura-fila .simbolo {
+  width: 14px;
+  height: 14px;
+}
+
+.cobertura-cifras {
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-2);
+}
+
+.cobertura-cifras strong {
+  color: var(--texto);
+  font-weight: 500;
+}
+
+.cobertura-porcentaje {
+  min-width: 56px;
+  text-align: right;
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+}
+
+.cobertura-fila .barra-medidor {
+  grid-column: 2 / -1;
+  height: 3px;
+}
+
+.cobertura-fila.tipo-hurto .barra-medidor span { background: var(--color-hurto); }
+.cobertura-fila.tipo-accidente .barra-medidor span { background: var(--color-accidente); }
+.cobertura-fila.tipo-incendio .barra-medidor span { background: var(--color-incendio); }
+.cobertura-fila.tipo-otro .barra-medidor span { background: var(--color-otro); }
+
+/* Tablas densas: filas de 32 px, cifras alineadas a la derecha. */
+.tabla-contenedor {
+  overflow-x: auto;
+  border: var(--borde) solid var(--linea);
+  border-radius: var(--radio-1);
+}
+
+/* Ancho fijo de columnas: el nombre de la estación se corta con "…" y las cifras nunca se esconden. */
+.tabla {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--texto-s);
+}
+
+.tabla th,
+.tabla td {
+  height: 32px;
+  padding: 0 var(--espacio-2);
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: var(--borde) solid var(--linea);
+}
+
+.tabla thead th {
+  position: sticky;
+  top: 0;
+  background: var(--superficie-2);
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  color: var(--texto-2);
+}
+
+.tabla .numero {
+  text-align: right;
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla tbody tr {
+  cursor: pointer;
+  transition: background var(--duracion-corta) var(--curva);
+}
+
+.tabla tbody tr:hover,
+.tabla tbody tr.resaltada,
+.tabla tbody tr:focus-visible {
+  background: var(--acento-tenue);
+}
+
+.tabla tbody tr:focus-visible {
+  outline-offset: -2px;
+}
+
+.tabla .col-corta {
+  width: 52px;
+}
+
+.tabla .col-cifra {
+  width: 72px;
+}
+
+.tabla .col-tiempo {
+  width: 78px;
+}
+
+.celda-estacion {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-width: 0;
+}
+
+.tabla td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.celda-estacion span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabla tfoot td,
+.tabla tfoot th {
+  background: var(--superficie-2);
+  font-weight: 600;
+  border-bottom: 0;
+}
+
+.tabla tfoot .desglose {
+  height: auto;
+  padding: var(--espacio-2);
+  white-space: normal;
+  font-weight: 400;
+  color: var(--texto-2);
+  border-top: var(--borde) solid var(--linea);
+}
+
+.tabla .mejor td:first-child {
+  box-shadow: inset 2px 0 0 var(--relleno);
+}
+
+.tabla .vacia td {
+  color: var(--texto-3);
+  white-space: normal;
+  height: auto;
+  padding: var(--espacio-3) var(--espacio-2);
+  cursor: default;
+}
+
+.nota {
+  margin: var(--espacio-2) 0 0;
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.acciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--espacio-2);
+  margin-top: var(--espacio-5);
+}
+
+.acciones #comparar {
+  grid-column: 1 / -1;
+}
+
+/* ---------- Movimiento reducido ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important; /* Preferencia del sistema: sin animaciones, sin excepción. */
+    animation-duration: 0ms !important;
+  }
+
+  .barra-progreso.indeterminada span {
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* ---------- Pantallas medianas (1024 px) ---------- */
+
+@media (max-width: 1180px) {
+  :root {
+    --ancho-controles: 288px;
+    --ancho-resultados: 340px;
+  }
+
+  .marca-app-sub {
+    display: none;
+  }
+
+  .leyenda {
+    width: 200px;
+  }
+}
+
+/* ---------- Teléfono: los paneles pasan a hojas inferiores ---------- */
+
+@media (max-width: 720px) {
+  .barra {
+    top: var(--espacio-2);
+    left: var(--espacio-2);
+    right: var(--espacio-2);
+  }
+
+  .marca-app {
+    flex: 1;
+  }
+
+  .boton-barra kbd,
+  .marca-app-sub {
+    display: none;
+  }
+
+  /* En el teléfono los botones quedan solo con icono; el texto sigue para lectores de pantalla. */
+  .boton-barra .texto-boton {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .boton-barra {
+    justify-content: center;
+    width: var(--alto-barra);
+    padding: 0;
+  }
+
+  .panel,
+  .panel-controles,
+  .panel-resultados {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    border-radius: var(--radio-2) var(--radio-2) 0 0;
+    border-bottom: 0;
+  }
+
+  .panel-controles {
+    max-height: 66vh;
+    z-index: 1150;
+  }
+
+  .panel-resultados {
+    max-height: 56vh;
+  }
+
+  .panel-controles.cerrado,
+  .panel-resultados.cerrado {
+    transform: translateY(calc(100% + 8px));
+  }
+
+  /* En el teléfono los controles de Leaflet no se corren a los lados. */
+  body.controles-abierto .leaflet-left {
+    left: 0;
+  }
+
+  body.resultados-abierto .leaflet-right {
+    right: 0;
+  }
+
+  .leaflet-bottom.leaflet-left {
+    top: calc(var(--alto-barra) + var(--espacio-3));
+    bottom: auto;
+  }
+
+  .leaflet-top.leaflet-right {
+    top: calc(var(--alto-barra) + var(--espacio-3));
+  }
+
+  .atajos {
+    display: none;
+  }
+}

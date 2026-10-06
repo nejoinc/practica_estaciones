@@ -1,0 +1,79 @@
+/*
+  Composición del mapa HTML exportado (un solo archivo, se abre con doble clic):
+  una franja superior con las cifras de la propuesta y el mapa debajo.
+  Usa los mismos tokens y el mismo mapa.css que la interfaz.
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body.exportado {
+  height: 100%;
+  margin: 0;
+}
+
+body.exportado {
+  display: flex;
+  flex-direction: column;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: var(--fuente-texto);
+  font-size: var(--texto-s);
+  line-height: var(--interlineado);
+}
+
+.exportado-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--espacio-3) var(--espacio-5);
+  padding: var(--espacio-3) var(--espacio-4);
+  background: var(--superficie);
+  border-bottom: var(--borde) solid var(--linea);
+}
+
+.exportado-titulos h1 {
+  margin: 0;
+  font-size: var(--texto-l);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.exportado-titulos p {
+  margin: 0;
+  color: var(--texto-2);
+}
+
+.exportado-cifras {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.exportado-cifra {
+  padding: 0 var(--espacio-4);
+  border-left: var(--borde) solid var(--linea);
+}
+
+.exportado-cifra dt {
+  font-size: var(--texto-xs);
+  color: var(--texto-3);
+}
+
+.exportado-cifra dd {
+  margin: 0;
+  font-family: var(--fuente-cifras);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--texto-m);
+}
+
+.exportado-mapa {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}

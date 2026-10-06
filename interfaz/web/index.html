@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="es" data-tema="oscuro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Estaciones · Planeación de cobertura</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="fuentes.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="mapa.css">
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body class="controles-abierto resultados-abierto">
+  <a class="saltar" href="#formulario">Saltar a los controles</a>
+
+  <header class="barra">
+    <div class="marca-app">
+      <span class="marca-app-sello" aria-hidden="true"></span>
+      <span class="marca-app-nombre">Estaciones</span>
+      <span class="marca-app-sub">Planeación de cobertura</span>
+    </div>
+    <button id="boton-controles" class="boton-barra" type="button" aria-expanded="true"
+            aria-controls="panel-controles" aria-keyshortcuts="[" title="Mostrar u ocultar controles ( [ )">
+      <svg class="icono" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <rect x="2.5" y="3.5" width="15" height="13" rx="1" />
+        <line x1="8" y1="3.5" x2="8" y2="16.5" />
+      </svg>
+      <span class="texto-boton">Controles</span>
+      <kbd>[</kbd>
+    </button>
+    <button id="boton-resultados" class="boton-barra" type="button" aria-expanded="true"
+            aria-controls="panel-resultados" aria-keyshortcuts="]" title="Mostrar u ocultar resultados ( ] )">
+      <svg class="icono" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <rect x="2.5" y="3.5" width="15" height="13" rx="1" />
+        <line x1="12" y1="3.5" x2="12" y2="16.5" />
+      </svg>
+      <span class="texto-boton">Resultados</span>
+      <kbd>]</kbd>
+    </button>
+    <button id="boton-tema" class="boton-barra boton-icono" type="button" aria-label="Cambiar a tema claro">
+      <svg class="icono" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <circle cx="10" cy="10" r="6.5" />
+        <path d="M10 3.5 A6.5 6.5 0 0 1 10 16.5 Z" class="icono-relleno" />
+      </svg>
+    </button>
+  </header>
+
+  <main id="mapa" class="mapa" data-fondo="oscuro" aria-label="Mapa de lotes, estaciones e incidentes"></main>
+
+  <aside id="panel-controles" class="panel panel-controles" aria-label="Controles">
+    <form id="formulario" class="formulario" novalidate>
+      <section class="bloque">
+        <h2 class="rotulo">Instancia</h2>
+        <label class="campo">
+          <span class="campo-nombre">Datos</span>
+          <select id="instancia" name="instancia"></select>
+        </label>
+        <div id="bloque-ruta" class="bloque-ruta" hidden>
+          <label class="campo">
+            <span class="campo-nombre">Ruta completa de la carpeta</span>
+            <input id="ruta" type="text" placeholder="C:\datos\sustentacion" spellcheck="false"
+                   autocomplete="off" aria-describedby="ayuda-ruta">
+          </label>
+          <p id="ayuda-ruta" class="ayuda">Debe contener nodos.csv, aristas.csv, lotes.csv, incidentes.csv y parametros.json.</p>
+          <button id="cargar-ruta" class="boton boton-secundario" type="button">Cargar carpeta</button>
+        </div>
+        <p id="info-instancia" class="ayuda cifras" aria-live="polite"></p>
+        <p id="error-instancia" class="mensaje-error" role="alert" hidden></p>
+      </section>
+
+      <section class="bloque">
+        <div class="bloque-cabecera">
+          <h2 class="rotulo" id="rotulo-presupuesto">Presupuesto</h2>
+          <button id="restablecer-presupuesto" class="enlace" type="button">Restablecer</button>
+        </div>
+        <div class="presupuesto">
+          <input id="presupuesto" type="number" min="0" step="100" inputmode="numeric"
+                 aria-labelledby="rotulo-presupuesto" aria-describedby="ayuda-presupuesto">
+          <span class="unidad">millones</span>
+        </div>
+        <input id="presupuesto-rango" class="rango" type="range" min="0" step="100"
+               aria-label="Presupuesto en millones (deslizador)">
+        <p id="ayuda-presupuesto" class="ayuda cifras"></p>
+      </section>
+
+      <section class="bloque">
+        <div class="bloque-cabecera">
+          <h2 class="rotulo">Pesos de prioridad</h2>
+          <button id="restablecer-pesos" class="enlace" type="button">Restablecer</button>
+        </div>
+        <div id="pesos" class="pesos"></div>
+      </section>
+
+      <section class="bloque">
+        <h2 class="rotulo" id="rotulo-metodo">Método</h2>
+        <div class="metodos" role="radiogroup" aria-labelledby="rotulo-metodo">
+          <label class="metodo">
+            <input type="radio" name="metodo" value="base">
+            <span class="metodo-nombre">Base</span>
+            <span class="metodo-detalle">mayor valor nuevo</span>
+          </label>
+          <label class="metodo">
+            <input type="radio" name="metodo" value="propia">
+            <span class="metodo-nombre">Propia</span>
+            <span class="metodo-detalle">valor por millón</span>
+          </label>
+          <label class="metodo">
+            <input type="radio" name="metodo" value="propia_ls">
+            <span class="metodo-nombre">Propia + LS</span>
+            <span class="metodo-detalle">con mejora local</span>
+          </label>
+          <label class="metodo">
+            <input type="radio" name="metodo" value="exacto">
+            <span class="metodo-nombre">Exacto</span>
+            <span class="metodo-detalle">Branch &amp; Bound</span>
+          </label>
+        </div>
+        <div id="bloque-limite" class="limite">
+          <label class="campo campo-en-linea">
+            <span class="campo-nombre">Límite del exacto</span>
+            <input id="limite" type="number" min="0" max="600" step="1" inputmode="numeric">
+            <span class="unidad">s</span>
+          </label>
+          <p id="aviso-exacto" class="ayuda aviso" hidden></p>
+        </div>
+      </section>
+
+      <div class="accion">
+        <p id="error-formulario" class="mensaje-error" role="alert" hidden></p>
+        <button id="calcular" class="boton boton-principal" type="submit">
+          <span>Calcular propuesta</span>
+          <kbd>Enter</kbd>
+        </button>
+      </div>
+    </form>
+    <p class="atajos">Atajos: <kbd>[</kbd> controles · <kbd>]</kbd> resultados · <kbd>Enter</kbd> calcular</p>
+  </aside>
+
+  <section id="panel-resultados" class="panel panel-resultados" aria-label="Resultados" aria-busy="false">
+    <div id="vista-vacia" class="estado">
+      <h2 class="rotulo">Propuesta</h2>
+      <p class="estado-titulo">Aún no hay propuesta.</p>
+      <p class="estado-texto">Elige la instancia, ajusta presupuesto, pesos y método, y pulsa
+        <strong>Calcular propuesta</strong> (o <kbd>Enter</kbd>). El mapa ya muestra los lotes
+        (rombos) y los incidentes de la instancia.</p>
+    </div>
+
+    <div id="vista-carga" class="estado" hidden>
+      <h2 class="rotulo">Calculando</h2>
+      <p id="carga-titulo" class="estado-titulo"></p>
+      <p class="carga-reloj cifras"><span id="carga-segundos">0,0 s</span><span id="carga-limite"></span></p>
+      <div id="carga-barra" class="barra-progreso" role="progressbar" aria-label="Progreso del cálculo">
+        <span id="carga-relleno"></span>
+      </div>
+      <p id="carga-nota" class="estado-texto"></p>
+    </div>
+
+    <div id="vista-error" class="estado estado-error" hidden>
+      <h2 class="rotulo">Error</h2>
+      <p class="estado-titulo">No se pudo completar el pedido.</p>
+      <p id="error-texto" class="estado-texto" role="alert"></p>
+      <button id="reintentar" class="boton boton-secundario" type="button">Reintentar</button>
+    </div>
+
+    <div id="vista-resultado" class="resultado" hidden>
+      <header class="resultado-cabecera">
+        <div>
+          <h2 class="rotulo">Propuesta</h2>
+          <p id="meta-resultado" class="meta"></p>
+        </div>
+        <span id="sello" class="sello" hidden></span>
+      </header>
+
+      <p id="aviso-desactualizado" class="aviso-cambio" hidden>Los controles cambiaron: pulsa Calcular para actualizar.</p>
+
+      <div class="valor">
+        <span id="valor" class="valor-cifra"></span>
+        <span class="valor-rotulo">valor · casos cubiertos × peso</span>
+      </div>
+
+      <div class="medidor">
+        <div class="medidor-fila">
+          <span>Costo frente al presupuesto</span>
+          <span id="costo-texto" class="cifras"></span>
+        </div>
+        <div class="barra-medidor"><span id="costo-relleno"></span></div>
+      </div>
+
+      <dl class="datos-cortos">
+        <div><dt>Estaciones</dt><dd id="cantidad-estaciones"></dd></div>
+        <div><dt>Incidentes cubiertos</dt><dd id="cantidad-cubiertos"></dd></div>
+        <div><dt>Tiempo</dt><dd id="tiempo"></dd></div>
+      </dl>
+
+      <section class="seccion">
+        <h3 class="rotulo">Casos cubiertos por tipo</h3>
+        <ul id="cobertura" class="cobertura"></ul>
+      </section>
+
+      <section class="seccion">
+        <h3 class="rotulo">Estaciones construidas</h3>
+        <div class="tabla-contenedor">
+          <table id="tabla" class="tabla">
+            <caption class="visualmente-oculto">Estaciones de la propuesta: lote, estación, costo y casos que cubre</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="col-corta">Lote</th>
+                <th scope="col">Estación</th>
+                <th scope="col" class="numero col-cifra">Costo M</th>
+                <th scope="col" class="numero col-corta">Casos</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-cuerpo"></tbody>
+            <tfoot id="tabla-pie"></tfoot>
+          </table>
+        </div>
+        <p class="nota">«Casos» de cada fila cuenta esa estación por separado; en el total cada incidente
+          cuenta una sola vez. Pasa el cursor por una fila para ubicarla; clic para ir a ella.</p>
+      </section>
+
+      <div class="acciones">
+        <button id="descargar-csv" class="boton boton-secundario" type="button">Tabla CSV</button>
+        <button id="descargar-mapa" class="boton boton-secundario" type="button">Mapa HTML</button>
+        <button id="comparar" class="boton boton-secundario" type="button">Comparar métodos</button>
+      </div>
+      <p id="mensaje-acciones" class="ayuda" aria-live="polite"></p>
+
+      <section id="bloque-comparacion" class="seccion" hidden>
+        <h3 class="rotulo">Comparación con los mismos parámetros</h3>
+        <div class="tabla-contenedor">
+          <table class="tabla">
+            <caption class="visualmente-oculto">Valor, costo y tiempo de cada método</caption>
+            <thead>
+              <tr>
+                <th scope="col">Método</th>
+                <th scope="col" class="numero col-cifra">Valor</th>
+                <th scope="col" class="numero col-cifra">Costo M</th>
+                <th scope="col" class="numero col-tiempo">Tiempo</th>
+              </tr>
+            </thead>
+            <tbody id="comparacion-cuerpo"></tbody>
+          </table>
+        </div>
+        <p id="comparacion-nota" class="nota"></p>
+      </section>
+    </div>
+  </section>
+
+  <p id="anuncio" class="visualmente-oculto" aria-live="polite"></p>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="formato.js"></script>
+  <script src="estado.js"></script>
+  <script src="mapa.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

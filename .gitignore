@@ -1,0 +1,24 @@
+# Entornos virtuales locales: el proyecto ya no necesita ninguno (solo biblioteca
+# estándar), pero si queda alguno en la carpeta no debe subirse al repositorio.
+.venv/
+
+# Archivos que Python genera al importar o probar
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Copias automáticas de Jupyter
+.ipynb_checkpoints/
+
+# Mapas HTML generados por "main.py parte4" (se regeneran; main.py crea la carpeta)
+salidas/
+
+# Registros
+*.log
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

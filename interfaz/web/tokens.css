@@ -1,0 +1,117 @@
+/*
+  Tokens de diseño: TODOS los colores, tamaños y fuentes salen de aquí.
+  La interfaz y el mapa exportado usan estas mismas variables, por eso
+  se ven igual. Decisiones y evidencia: docs/DISENO.md.
+
+  Tema oscuro primero (el mapa luce los puntos mejor sobre fondo oscuro);
+  el tema claro solo redefine colores, nunca tamaños.
+*/
+
+:root {
+  /* Tipografía: un grotesco con carácter para todo el texto y una
+     monoespaciada para las cifras (los dígitos quedan alineados en columna). */
+  --fuente-texto: "Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --fuente-cifras: "Fira Code", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --texto-xs: 11px;
+  --texto-s: 13px;
+  --texto-m: 15px;
+  --texto-l: 20px;
+  --texto-xl: 40px;
+  --interlineado: 1.45;
+
+  /* Espaciado en pasos de 4 px (dashboard denso, ver DISENO.md). */
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-3: 12px;
+  --espacio-4: 16px;
+  --espacio-5: 24px;
+
+  /* Esquinas casi rectas y bordes finos: aspecto de instrumento, no de tarjeta. */
+  --radio-1: 2px;
+  --radio-2: 4px;
+  --borde: 1px;
+  --objetivo-tactil: 40px;
+
+  /* Medidas de la composición. */
+  --ancho-controles: 312px;
+  --ancho-resultados: 392px;
+  --alto-barra: 48px;
+  --margen-flotante: 12px;
+
+  /* Movimiento: corto y con una sola curva para todo. */
+  --duracion-corta: 140ms;
+  --duracion-media: 220ms;
+  --curva: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* ---- Colores (tema oscuro) ---- */
+  --fondo: #0a0b0d;
+  --superficie: #111317;
+  --superficie-2: #181b20;
+  --superficie-3: #20242a;
+  --linea: #2a2e35;
+  --linea-fuerte: #3d424b;
+  --texto: #eceef1;
+  --texto-2: #a6abb4;
+  --texto-3: #8a909a;
+
+  /* Un único acento cortante: amarillo lima de chaleco reflectivo. */
+  --acento: #d4ff3f;
+  --sobre-acento: #0a0b0d;
+  --acento-texto: #d4ff3f;
+  --acento-tenue: rgba(212, 255, 63, 0.12);
+  --borde-acento: #d4ff3f;
+  /* Relleno de barras y deslizador: lima en oscuro, oliva en claro (contraste 3:1 con la pista). */
+  --relleno: #d4ff3f;
+  /* Anillo de foco: debe contrastar con el fondo en cada tema. */
+  --anillo: #d4ff3f;
+
+  --peligro: #ff7a6b;
+  --peligro-tenue: rgba(255, 122, 107, 0.1);
+  --aviso: #f5b83d;
+
+  /* Colores de cada tipo (siempre junto a una forma distinta). */
+  --color-hurto: #5b9bff;
+  --color-accidente: #f2a93b;
+  --color-incendio: #ff6a3d;
+  --color-otro: #b08cff;
+  --color-no-cubierto: #6f7680;
+  --color-lote-libre: #9aa1aa;
+  --borde-marca: #0a0b0d;
+
+  color-scheme: dark;
+}
+
+:root[data-tema="claro"] {
+  --fondo: #eceae4;
+  --superficie: #fbfaf7;
+  --superficie-2: #f1efea;
+  --superficie-3: #e6e3dc;
+  --linea: #d9d5cc;
+  --linea-fuerte: #bdb8ad;
+  --texto: #15171a;
+  --texto-2: #4a4f57;
+  --texto-3: #5f646c;
+
+  /* En claro el lima no se lee como texto: se usa un oliva oscuro. */
+  --acento: #d4ff3f;
+  --sobre-acento: #0a0b0d;
+  --acento-texto: #4b6000;
+  --acento-tenue: rgba(120, 150, 0, 0.12);
+  --borde-acento: #8fae1b;
+  --relleno: #5f7a00;
+  --anillo: #15171a;
+
+  --peligro: #b42318;
+  --peligro-tenue: rgba(180, 35, 24, 0.08);
+  --aviso: #9a5b00;
+
+  --color-hurto: #1f5fd1;
+  --color-accidente: #a86500;
+  --color-incendio: #cc3d14;
+  --color-otro: #6f45c9;
+  --color-no-cubierto: #8a9099;
+  --color-lote-libre: #6f757e;
+  --borde-marca: #fbfaf7;
+
+  color-scheme: light;
+}
