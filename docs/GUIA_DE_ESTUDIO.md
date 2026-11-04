@@ -30,6 +30,7 @@ proyecto (la que contiene `main.py`). El `README.md` de la raíz es el resumen c
 - [13. Parte 4: mapa, subcomando `parte4` e interfaz](#13-parte-4-mapa-subcomando-parte4-e-interfaz)
 - [14. Estado y límites honestos](#14-estado-y-límites-honestos)
 - [15. El notebook](#15-el-notebook)
+- [16. Criterios de evaluación y discurso experto](#16-criterios-de-evaluación-y-discurso-experto)
 
 ---
 
@@ -48,6 +49,7 @@ proyecto (la que contiene `main.py`). El `README.md` de la raíz es el resumen c
 | 7 | Sección 10 | 30 min | Qué tocar si cambian los datos (se hace en vivo). |
 | 8 | Sección 11 | 60 min | Practicar las respuestas en voz alta. |
 | 9 | Sección 13 | 60 min | Mapa, `parte4`, servidor e interfaz web: ensayar la demo de la feria. |
+| 10 | Sección 16 | 60 min | Preparar una explicación evaluable: grafo, algoritmos, comparación, calidad técnica y trade-offs. |
 
 ### Chuleta de 1 página (para el día de la sustentación)
 
@@ -1343,6 +1345,384 @@ es `>=` que la ganancia conjunta, nunca menor.
 2. Ignora la regla "un lote, una estación" (en el ejemplo usa L1 hurto, L1 accidente y un pedazo
    de L1 incendio a la vez).
 3. Permite comprar una fracción de una estación.
+
+---
+
+## 16. Criterios de evaluación y discurso experto
+
+Esta sección reúne los puntos que se pueden evaluar en la sustentación. No es una lista para
+memorizar sin comprender: cada respuesta debe relacionar el problema, la decisión algorítmica,
+la implementación y la evidencia experimental. Cuando se mencione un archivo, conviene abrirlo
+y señalar la función correspondiente.
+
+### 16.1 Modelado del grafo
+
+El mapa de calles se modela como un **grafo dirigido y ponderado**:
+
+- Cada nodo representa una intersección o punto de la red.
+- Cada arista representa un tramo permitido en un sentido.
+- El peso de la arista es su longitud en metros.
+- Una arista `u -> v` no crea automáticamente la arista `v -> u`.
+
+La representación en `lectura.py` es una lista de adyacencia:
+
+```text
+grafo[origen] = [(destino, longitud), ...]
+```
+
+Esta representación es adecuada porque la red es dispersa: cada nodo se conecta con pocos
+vecinos en relación con el número total de nodos. La función `dijkstra_con_corte` de
+`estaciones/grafo.py` recibe el nodo del lote y calcula las distancias mínimas hacia los nodos
+de los incidentes.
+
+La dirección no es un detalle de implementación. Representa la pregunta real: ¿qué tan rápido
+puede desplazarse el vehículo desde la estación hasta el incidente? En `pequena`, por ejemplo,
+el tramo directo `4 -> 5` no implica que `5 -> 4` tenga la misma distancia. Si se invirtiera el
+sentido o se usara distancia geométrica, la cobertura sería incorrecta.
+
+El modelo guarda las distancias como enteros escalados, no como `float`. Si una distancia tiene
+una cifra decimal, `49,9` se guarda como `499` décimas. Así la condición de cobertura:
+
+```python
+distancia <= radio
+```
+
+es exacta incluso en el borde del radio. Además, Dijkstra se corta en el radio máximo de los
+tipos de estación. Si ningún tipo puede cubrir más allá de 3000 m, explorar una ruta de 5000 m
+solo desperdicia tiempo.
+
+**Respuesta de sustentación:**
+
+> El grafo es dirigido porque las calles tienen sentido, y ponderado porque cada tramo tiene
+> una longitud. Usamos lista de adyacencia y Dijkstra desde cada lote, con corte en el radio
+> máximo. No usamos BFS porque las aristas no tienen el mismo peso ni Floyd-Warshall porque
+> calcularía todas las parejas de nodos cuando solo necesitamos distancias desde los lotes.
+
+### 16.2 Implementación de algoritmos: Greedy y Backtracking
+
+#### Greedy
+
+Las heurísticas construyen una solución incrementalmente. En cada iteración consideran las
+opciones que:
+
+1. Están en un lote todavía libre.
+2. Caben en el presupuesto restante.
+3. Cubren al menos un incidente nuevo.
+
+La heurística `base` maximiza el valor nuevo inmediato. `propia` maximiza aproximadamente:
+
+```text
+valor nuevo / costo
+```
+
+`propia_ls` combina varios arranques greedy con búsqueda local: fuerza diferentes primeras
+decisiones, cambia estaciones, elimina una o dos y vuelve a completar la propuesta. Todas las
+heurísticas terminan y producen una solución factible, pero no demuestran optimalidad.
+
+#### Backtracking
+
+El exacto recorre un árbol de decisiones. Para cada lote existen cuatro decisiones:
+
+```text
+no construir, construir hurto, construir accidente, construir incendio
+```
+
+La función `_explorar` de `estaciones/exacto.py` mantiene el estado mínimo necesario:
+
+- índice del lote actual;
+- máscara de incidentes cubiertos;
+- presupuesto restante;
+- propuesta parcial;
+- mejor propuesta conocida.
+
+Cuando baja por una rama agrega una opción; cuando retorna, quita esa opción de la propuesta.
+Ese patrón es el backtracking: explorar una decisión, continuar recursivamente y deshacerla al
+volver.
+
+Branch & Bound agrega una pregunta antes de explorar una rama:
+
+> Incluso en el escenario más favorable, ¿esta rama puede superar la mejor solución?
+
+Si la respuesta es no, se poda. En este proyecto la respuesta se calcula con:
+
+- unión de todas las coberturas alcanzables;
+- presupuesto disponible;
+- cota de mochila fraccional basada en ganancias marginales;
+- eliminación de estaciones dominadas.
+
+El arranque con `propia_ls` es un **warm start**. No cambia la correctitud del exacto; solo
+entrega pronto una buena solución contra la cual comparar las cotas y podar más ramas.
+
+### 16.3 Comparación de algoritmos
+
+| Algoritmo | Garantía | Velocidad | Calidad esperada | Uso recomendado |
+|---|---|---|---|---|
+| `base` | Factible, no óptimo | Muy alta | Menor | Referencia del enunciado |
+| `propia` | Factible, no óptimo | Muy alta | Variable | Mejorar el uso del presupuesto |
+| `propia_ls` | Factible, no óptimo | Alta, pero mayor costo de cálculo | Generalmente mejor | Instancias grandes |
+| Exacto B&B | Óptimo si certifica | Puede ser exponencial | Óptima | Instancias pequeñas o con límite |
+
+Resultados representativos:
+
+| Instancia | `base` | `propia` | `propia_ls` | Exacto |
+|---|---:|---:|---:|---:|
+| `pequena` | 15 | 19 | 20 | 20 |
+| `comuna` | 1529 | 1492 | 1574 | 1574 |
+| `ciudad` | 7591 | 7706 | 7827 | no calculado |
+
+La comparación correcta no es solamente “qué valor es más alto”. También hay que observar:
+
+- tiempo de ejecución;
+- costo total;
+- cantidad y tipo de estaciones;
+- si el óptimo está certificado;
+- tamaño del espacio de búsqueda.
+
+Las instancias de `instancias_malas/` son evidencia de que un greedy puede fallar. En ellas,
+`base`, `propia` y `propia_ls` quedan por debajo de la fuerza bruta. Esto demuestra por qué una
+heurística no puede presentarse como una prueba de optimalidad.
+
+**Respuesta de sustentación:**
+
+> Para ciudad prefiero `propia_ls` porque el exacto tiene un espacio `4^80` y no es realista
+> certificarlo rápidamente. Para pequena y comuna uso el exacto porque el costo adicional es
+> aceptable y puedo demostrar la calidad de la solución. La elección depende del tamaño y de si
+> necesito una garantía o una respuesta rápida.
+
+### 16.4 Visualización geográfica
+
+La visualización es una capa de presentación, no una segunda implementación del algoritmo.
+`estaciones/mapa.py` recibe el `Modelo` y el resultado ya calculado, y genera:
+
+- tabla de estaciones;
+- totales de costo, presupuesto y valor;
+- incidentes cubiertos y no cubiertos;
+- lotes libres;
+- coordenadas de lotes e incidentes;
+- datos para el mapa y exportación HTML.
+
+Leaflet solo dibuja. No calcula rutas, costos ni coberturas. Esto mantiene una única fuente de
+verdad: la consola, el mapa exportado y la interfaz usan los mismos resultados de Python.
+
+La interfaz distingue los tipos con color y forma:
+
+- hurto: cuadrado;
+- accidente: triángulo;
+- incendio: círculo;
+- lote libre: rombo.
+
+La forma y la tabla son importantes porque la información no debe depender únicamente del color.
+La tabla ofrece además una alternativa accesible al mapa. Las teselas de OpenStreetMap requieren
+Internet, pero el código Leaflet, los estilos, las fuentes y los datos del mapa exportado quedan
+incluidos localmente.
+
+**Qué demostrar en vivo:**
+
+```text
+py main.py parte4 pequena --metodo exacto
+py main.py interfaz --no-abrir
+```
+
+Después se puede cambiar instancia, presupuesto, pesos y método, ejecutar la propuesta y comparar
+la tabla con los elementos dibujados.
+
+### 16.5 Calidad técnica
+
+La calidad técnica se puede defender con evidencias concretas:
+
+1. **Separación de responsabilidades:** lectura, grafo, modelo, algoritmos, mapa e interfaz
+   están en módulos distintos.
+2. **Una sola lógica de negocio:** CLI, servidor y mapa reutilizan `Modelo`, las heurísticas y
+   `resolver`.
+3. **Validación de entradas:** se detectan columnas faltantes, duplicados, nodos inexistentes,
+   tipos inválidos, costos inválidos y presupuesto excedido.
+4. **Exactitud numérica:** `Decimal` para costos y enteros escalados para distancias.
+5. **Determinismo:** orden natural de lotes y desempates definidos.
+6. **Defensa contra entradas maliciosas:** el servidor limita rutas, tamaños de cuerpo, métodos,
+   límites y pesos; escucha solo en `127.0.0.1`.
+7. **Pruebas independientes:** `evaluar` revisa desde listas de incidentes y no depende de las
+   máscaras usadas por las heurísticas.
+8. **Reproducibilidad:** los resultados documentados se generan con comandos de la raíz.
+
+Una buena explicación técnica también reconoce los límites:
+
+- el exacto puede ser exponencial;
+- `ciudad` se resuelve de forma aproximada por tiempo;
+- el mapa base depende de Internet;
+- Node solo es necesario para las pruebas JavaScript;
+- la prueba de rutas Windows debe ejecutarse en el sistema operativo correspondiente.
+
+### 16.6 Explicación de los algoritmos
+
+Para explicar cualquier algoritmo use siempre esta secuencia:
+
+1. **Problema que resuelve.**
+2. **Estado de entrada.**
+3. **Decisión central.**
+4. **Estructura de datos usada.**
+5. **Condición de terminación o poda.**
+6. **Garantía y limitaciones.**
+7. **Complejidad.**
+8. **Evidencia en una instancia.**
+
+Aplicado a Dijkstra:
+
+> Resuelve caminos mínimos con pesos no negativos. Parte de un lote, mantiene la mejor distancia
+> conocida por nodo en un diccionario y usa un montículo para extraer la menor. Descarta
+> distancias mayores al radio de corte. Termina cuando no quedan candidatos. Es exacto para estas
+> longitudes y cuesta O((V' + E') log V') en la zona explorada.
+
+Aplicado al greedy:
+
+> Construye una propuesta factible eligiendo la mejor ganancia inmediata disponible. Es rápido y
+> determinista, pero una decisión local puede consumir un lote o presupuesto que hacía parte de
+> una combinación mejor. Por eso no certifica el óptimo.
+
+Aplicado a Branch & Bound:
+
+> Explora todas las decisiones potencialmente relevantes, pero poda una rama si una cota superior
+> demuestra que no puede mejorar la mejor solución. Si termina sin cortarse, el resultado es
+> óptimo certificado; si se acaba el tiempo, devuelve la mejor propuesta encontrada y lo marca
+> como no certificado.
+
+### 16.7 Uso de técnicas algorítmicas
+
+El proyecto combina técnicas, y cada una tiene una razón:
+
+| Técnica | Dónde aparece | Para qué sirve |
+|---|---|---|
+| Lista de adyacencia | `lectura.py` | Representar un grafo disperso eficientemente |
+| Dijkstra | `grafo.py` | Distancias mínimas en calles ponderadas |
+| Corte de búsqueda | `grafo.py` | No recorrer nodos fuera de todos los radios |
+| Máscaras de bits | `modelo.py` | Unir, diferenciar y contar coberturas rápidamente |
+| Greedy | `heuristicas.py` | Obtener pronto una solución factible |
+| Búsqueda local | `heuristicas.py` | Corregir decisiones iniciales del greedy |
+| Backtracking | `exacto.py` | Explorar decisiones por lote |
+| Branch & Bound | `exacto.py` | Evitar ramas incapaces de mejorar |
+| Dominancia | `exacto.py` | Eliminar opciones siempre inferiores |
+| Memoización de modelos | `servidor.py` | Reutilizar instancias y precálculos en la interfaz |
+
+La respuesta experta no dice solamente “usamos Branch & Bound”; explica qué estado conserva, qué
+cota usa, por qué la cota es válida y qué sucede si el límite de tiempo se agota.
+
+### 16.8 Análisis de complejidad
+
+Definamos:
+
+- `V`: número de nodos de la red;
+- `E`: número de aristas;
+- `L`: número de lotes;
+- `I`: número de incidentes;
+- `T`: número de tipos de estación, normalmente 3.
+
+**Carga y precálculo:**
+
+- lectura de datos: O(V + E + L + I);
+- Dijkstra con corte: O((V' + E') log V') por lote;
+- precálculo de coberturas: O(L · ((V' + E') log V' + I · T)).
+
+Aquí `V'` y `E'` son los elementos alcanzados dentro del radio de corte. Sin corte, se reemplazan
+por `V` y `E`.
+
+**Heurísticas:**
+
+La selección greedy revisa las opciones, aproximadamente O(LT), en cada iteración. Con hasta un
+estacionamiento por lote hay O(L) iteraciones, por lo que la implementación directa es
+aproximadamente O(L²T), además del costo de combinar y valorar máscaras. `propia_ls` agrega
+arranques y vecindarios, por lo que puede ser considerablemente más costosa, aunque sigue
+terminando y no explora `4^L` de forma exhaustiva.
+
+**Exacto:**
+
+Cada lote tiene `T + 1` alternativas, así que el peor caso es:
+
+```text
+O((T + 1)^L)
+```
+
+Con tres tipos es `O(4^L)`. El costo por nodo del árbol incluye evaluar opciones y cotas. Las
+podas mejoran mucho el caso práctico, pero no eliminan la naturaleza exponencial del problema.
+
+**Memoria:**
+
+- grafo: O(V + E);
+- coberturas precalculadas: O(LT + I);
+- profundidad de recursión del exacto: O(L);
+- máscaras: O(I) bits por máscara, no O(I) objetos separados.
+
+### 16.9 Análisis de trade-offs
+
+Toda decisión importante intercambia una ventaja por un costo:
+
+| Decisión | Ventaja | Costo o riesgo |
+|---|---|---|
+| Dijkstra en vez de BFS | Correcto con longitudes distintas | Usa montículo y es más complejo |
+| Corte por radio | Reduce mucho el trabajo | Solo es válido porque se conoce el radio máximo |
+| Enteros escalados | Comparaciones exactas | Requiere detectar la escala |
+| Máscaras de bits | Uniones y conteos rápidos | Menos intuitivas que una lista o `set` |
+| Greedy | Respuesta rápida | No garantiza optimalidad |
+| Búsqueda local | Mejora greedy sin enumerar todo | Depende de los vecinos elegidos |
+| Branch & Bound | Puede certificar el óptimo | Peor caso exponencial |
+| Warm start | Mejores podas desde el inicio | Consume tiempo antes del árbol exacto |
+| Mapa interactivo | Facilita explicar resultados espacialmente | Requiere navegador y, para teselas, Internet |
+| Sin dependencias Python | Instalación simple y reproducible | Menos utilidades listas que un framework |
+
+La decisión correcta depende del objetivo. Para una sustentación importa poder demostrar el
+óptimo en `pequena` y `comuna`; para una ciudad grande importa entregar una respuesta útil dentro
+de un tiempo razonable y declarar honestamente que no está certificada.
+
+### 16.10 Claridad y dominio conceptual
+
+Una explicación clara debe separar tres niveles:
+
+1. **Regla del problema:** por ejemplo, un lote admite máximo una estación.
+2. **Representación:** el lote y la cobertura se guardan en estructuras Python.
+3. **Técnica:** Branch & Bound usa esa representación para buscar y podar.
+
+Evite frases imprecisas:
+
+- No diga “el algoritmo encuentra el mejor camino por distancia geográfica”; diga
+  “encuentra el camino mínimo sobre la red dirigida”.
+- No diga “el greedy encuentra el óptimo”; diga “produce una solución factible rápida”.
+- No diga “la cota calcula el resultado real”; diga “sobreestima el máximo posible”.
+- No diga “el mapa calcula la cobertura”; diga “visualiza la cobertura calculada por el modelo”.
+- No diga “la ciudad es óptima porque tiene el mayor valor”; diga “es la mejor encontrada por
+  la heurística dentro del tiempo, sin certificado”.
+
+#### Guion de cinco minutos
+
+1. **Problema:** maximizar incidentes ponderados cubiertos con presupuesto y una estación por
+   lote.
+2. **Grafo:** red dirigida y ponderada; Dijkstra desde cada lote con corte por radio.
+3. **Modelo:** costos exactos, máscaras de bits y evaluación independiente.
+4. **Algoritmos:** greedy para rapidez; búsqueda local para mejorar; Branch & Bound para
+   certificar en instancias pequeñas.
+5. **Comparación:** mostrar `pequena`, `comuna` y `ciudad`, incluyendo tiempos y certificado.
+6. **Visualización:** enseñar que la tabla y el mapa reflejan el mismo resultado.
+7. **Calidad:** mencionar validaciones, pruebas, determinismo y límites.
+8. **Cierre:** justificar por qué el método elegido depende del tamaño de la instancia.
+
+#### Preguntas rápidas que debes poder responder
+
+**¿Por qué no escoger siempre la estación con más incidentes?**
+Porque importa el valor nuevo, el costo, el presupuesto, el lote disponible y el solapamiento
+con estaciones ya construidas.
+
+**¿Por qué la cota no elimina el óptimo?**
+Porque es optimista: relaja restricciones y permite solapamientos o fracciones. Si incluso ese
+escenario ideal no supera la mejor solución, ninguna solución real de la rama puede hacerlo.
+
+**¿Qué significa un óptimo no certificado?**
+Que la propuesta es factible y es la mejor encontrada hasta el límite, pero aún podría existir
+otra mejor que no se exploró.
+
+**¿Cómo sabes que una heurística no produjo una cobertura incorrecta?**
+Cada resultado se valida con `Modelo.evaluar`, que recalcula costos y coberturas a partir de listas
+de incidentes; además las pruebas comparan el exacto con fuerza bruta en instancias pequeñas.
+
+**¿Cuál es la principal limitación del proyecto?**
+La búsqueda exacta crece exponencialmente con los lotes. La respuesta para instancias grandes
+debe equilibrar calidad, tiempo y honestidad sobre la certificación.
 
 Quitar o aflojar restricciones solo puede hacer que el máximo **suba** (todas las soluciones
 del problema original siguen siendo válidas en el relajado). Y la mochila fraccional se resuelve
