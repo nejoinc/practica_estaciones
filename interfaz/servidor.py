@@ -127,7 +127,8 @@ def carpeta_pedida(texto):
             raise ErrorDePeticion(404, f"No existe la instancia «{texto}» en la carpeta instancias.")
         return carpeta.resolve()
     ruta = Path(texto)
-    if not ruta.is_absolute():
+    ruta_windows = bool(re.match(r"^[A-Za-z]:[\\/]", texto) or texto.startswith("\\\\"))
+    if not ruta.is_absolute() and not ruta_windows:
         raise ErrorDePeticion(400, "Escribe la ruta completa de la carpeta "
                                    "(por ejemplo C:\\datos\\sustentacion).")
     carpeta = ruta.resolve()
