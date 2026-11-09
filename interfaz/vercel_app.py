@@ -14,7 +14,6 @@ from .servidor import (
     POLITICA_DE_CONTENIDO,
     ErrorDePeticion,
     Almacen,
-    comparar_metodos,
     esta_certificado,
     exportar_html,
     instancias_disponibles,
@@ -23,13 +22,15 @@ from .servidor import (
     respuesta_de_propuesta,
     resumen_de_instancia,
     validar_metodo,
-    calcular,
 )
+from estaciones.ejecucion import METODOS, ejecutar_metodo
 
 
 _METODOS_CON_CUERPO = {"POST"}
 _LIMITE_CUERPO = 64 * 1024
 _ALMACEN = Almacen()
+_LOTES_MAXIMOS_EXACTO_EN_VIVO = 30
+_LIMITE_HEURISTICA_GRANDE = 3.0
 _RAZONES = {
     200: "OK",
     400: "Bad Request",
@@ -108,6 +109,20 @@ def _configuracion_publica(cuerpo):
     return leer_configuracion(cuerpo_publico, _ALMACEN)
 
 
+def _metodo_en_vivo(configuracion, metodo):
+    """Aplica límites de producción sin cambiar el contrato de la interfaz."""
+    cantidad_lotes = len(configuracion["modelo"].instancia.lotes)
+    if metodo == "exacto" and cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
+        raise ErrorDePeticion(
+            400,
+            "El método exacto está reservado para instancias de hasta "
+            f"{_LOTES_MAXIMOS_EXACTO_EN_VIVO} lotes. Usa «Propia + LS» para esta escala.",
+        )
+    if metodo == "propia_ls" and cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
+        return metodo, _LIMITE_HEURISTICA_GRANDE
+    return metodo, configuracion["limite"]
+
+
 def _api_instancia(cuerpo):
     nombre = _nombre_de_instancia(cuerpo)
     # La ruta se obtiene mediante la misma validación central del servidor local.
@@ -124,23 +139,47 @@ def _api_instancia(cuerpo):
 def _resolver(cuerpo):
     metodo = validar_metodo(cuerpo.get("metodo") if isinstance(cuerpo, dict) else None)
     configuracion = _configuracion_publica(cuerpo)
-    resultado, segundos = calcular(configuracion, metodo, _ALMACEN)
+    metodo, limite = _metodo_en_vivo(configuracion, metodo)
+    resultado, segundos = ejecutar_metodo(configuracion["modelo"], metodo, limite)
+    _ALMACEN.guardar_resultado((configuracion["clave"], metodo, limite), resultado)
     return _json(200, respuesta_de_propuesta(configuracion, metodo, resultado, segundos))
 
 
 def _comparar(cuerpo):
     configuracion = _configuracion_publica(cuerpo)
-    return _json(200, comparar_metodos(configuracion))
+    cantidad_lotes = len(configuracion["modelo"].instancia.lotes)
+    metodos = METODOS
+    if cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
+        metodos = ("base", "propia", "propia_ls")
+    filas = []
+    for metodo in metodos:
+        metodo_real, limite = _metodo_en_vivo(configuracion, metodo)
+        resultado, segundos = ejecutar_metodo(configuracion["modelo"], metodo_real, limite)
+        filas.append({
+            "metodo": metodo_real,
+            "valor": resultado["valor"],
+            "costo_total": resultado["costo_total"],
+            "cantidad_estaciones": len(resultado["estaciones"]),
+            "tiempo_s": segundos,
+            "optimo_certificado": esta_certificado(metodo_real, resultado),
+        })
+    return _json(200, {
+        "instancia": configuracion["nombre"],
+        "limite_segundos": configuracion["limite"],
+        "filas": filas,
+    })
 
 
 def _exportar(cuerpo):
     metodo = validar_metodo(cuerpo.get("metodo") if isinstance(cuerpo, dict) else None)
     configuracion = _configuracion_publica(cuerpo)
+    metodo, limite = _metodo_en_vivo(configuracion, metodo)
     tema = "claro" if cuerpo.get("tema") == "claro" else "oscuro"
-    clave = (configuracion["clave"], metodo, configuracion["limite"])
+    clave = (configuracion["clave"], metodo, limite)
     resultado = _ALMACEN.ultimo_resultado(clave)
     if resultado is None:
-        resultado, _segundos = calcular(configuracion, metodo, _ALMACEN)
+        resultado, _segundos = ejecutar_metodo(configuracion["modelo"], metodo, limite)
+        _ALMACEN.guardar_resultado(clave, resultado)
     certificado = esta_certificado(metodo, resultado)
     detalle = metodo
     if certificado is True:

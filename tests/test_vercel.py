@@ -65,6 +65,25 @@ class AdaptadorVercel(unittest.TestCase):
         self.assertIn("attachment", cabeceras["Content-Disposition"])
         self.assertIn(b"datos-del-mapa", contenido)
 
+    def test_limita_exacto_en_instancia_grande(self):
+        estado, _cabeceras, contenido = pedir(
+            "POST",
+            "/api/resolver",
+            {"instancia": "ciudad", "metodo": "exacto", "limite_segundos": 5},
+        )
+        self.assertEqual(estado, "400 Bad Request")
+        self.assertIn("reservado", json.loads(contenido)["error"])
+
+    def test_comparacion_grande_no_ejecuta_exacto(self):
+        estado, _cabeceras, contenido = pedir(
+            "POST",
+            "/api/comparar",
+            {"instancia": "ciudad", "limite_segundos": 1},
+        )
+        datos = json.loads(contenido)
+        self.assertEqual(estado, "200 OK")
+        self.assertEqual([fila["metodo"] for fila in datos["filas"]], ["base", "propia", "propia_ls"])
+
     def test_ruta_desconocida_es_json(self):
         estado, cabeceras, contenido = pedir("POST", "/api/no-existe", {})
         self.assertEqual(estado, "404 Not Found")

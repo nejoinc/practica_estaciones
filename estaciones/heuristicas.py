@@ -75,6 +75,26 @@ def _elegir_siguiente(modelo, propuesta, puntaje):
     return mejor_opcion
 
 
+def _elegir_siguiente_con_estado(modelo, costo_total, cubiertos, lotes_usados, puntaje):
+    """Busca la siguiente estación sin reconstruir el estado de la propuesta."""
+    presupuesto_restante = modelo.presupuesto - costo_total
+    mejor_opcion = None
+    mejor_puntaje = None
+    for opcion in modelo.opciones:
+        if opcion["lote"] in lotes_usados:
+            continue
+        if opcion["costo"] > presupuesto_restante:
+            continue
+        valor_nuevo = modelo.valor_mask(opcion["mascara"] & ~cubiertos)
+        if valor_nuevo == 0:
+            continue
+        puntaje_de_la_opcion = puntaje(valor_nuevo, opcion["costo"])
+        if mejor_opcion is None or puntaje_de_la_opcion > mejor_puntaje:
+            mejor_opcion = opcion
+            mejor_puntaje = puntaje_de_la_opcion
+    return mejor_opcion
+
+
 def goloso(modelo, puntaje, estaciones_iniciales=None):
     """Agrega estaciones una a una (la de mayor puntaje) hasta que ninguna aporte.
 
@@ -84,11 +104,18 @@ def goloso(modelo, puntaje, estaciones_iniciales=None):
     propuesta = []
     if estaciones_iniciales is not None:
         propuesta = list(estaciones_iniciales)
+    costo_total, cubiertos, lotes_usados = resumir(modelo, propuesta)
     while True:
-        opcion = _elegir_siguiente(modelo, propuesta, puntaje)
+        opcion = _elegir_siguiente_con_estado(
+            modelo, costo_total, cubiertos, lotes_usados, puntaje
+        )
         if opcion is None:
             return propuesta
-        propuesta.append((opcion["lote"], opcion["tipo"]))
+        estacion = (opcion["lote"], opcion["tipo"])
+        propuesta.append(estacion)
+        costo_total += opcion["costo"]
+        cubiertos |= opcion["mascara"]
+        lotes_usados.add(opcion["lote"])
 
 
 def _resultado(modelo, propuesta):

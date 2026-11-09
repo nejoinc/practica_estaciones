@@ -17,14 +17,17 @@ METODOS = ("base", "propia", "propia_ls", "exacto")
 def ejecutar_metodo(modelo, metodo, limite_segundos=None):
     """Corre el método elegido y devuelve (resultado, segundos).
 
-    El límite de tiempo solo se usa en el exacto: las heurísticas siempre
-    terminan y así su resultado es siempre el mismo.
+    El límite de tiempo se usa en el exacto y en `propia_ls`. Las heurísticas
+    simples siempre terminan; `propia_ls` puede detener su mejora local y
+    devolver la mejor propuesta factible encontrada hasta ese momento.
     """
     if metodo not in METODOS:
         raise ValueError(f"Método desconocido: {metodo}")
     inicio = time.perf_counter()
     if metodo == "exacto":
         resultado = resolver(modelo, limite_segundos=limite_segundos)
+    elif metodo == "propia_ls":
+        resultado = propia_ls(modelo, limite_segundos=limite_segundos)
     else:
         resultado = HEURISTICAS[metodo](modelo)
     return resultado, time.perf_counter() - inicio

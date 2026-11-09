@@ -101,14 +101,23 @@ rebanada puede agregar carga de archivos con límites y validación explícitos.
 
 ## Rendimiento y límites actuales
 
-- El método y el límite de tiempo siguen siendo los del contrato existente.
+- En instancias de más de 30 lotes, la API pública limita `propia_ls` a 3
+  segundos. Devuelve la mejor propuesta factible encontrada dentro de ese
+  tiempo; no la presenta como óptimo certificado.
+- En instancias de más de 30 lotes, la API pública rechaza `exacto` con un
+  mensaje explícito. Esto evita que una demo quede bloqueada esperando una
+  certificación que no es realista para esa escala.
+- En `ciudad`, `comparar` ejecuta `base`, `propia` y `propia_ls`, pero no
+  `exacto`. La comparación sigue siendo útil y tiene un tiempo acotado.
 - El estado de modelos y resultados es un caché oportunista de una instancia
   serverless; no se considera persistente.
 - `/api/exportar` recalcula si la petición cae en otra instancia que no tiene
   el resultado en memoria.
 - No se debe usar `exacto` sobre `ciudad` como acción principal de la demo.
-  La siguiente rebanada agregará una política de tiempo y un camino rápido
-  para que la primera respuesta sea fluida.
+
+La lógica de esta política está en `interfaz/vercel_app.py`; el servidor local
+conserva el comportamiento completo para estudiar y experimentar con todos
+los métodos.
 
 ## Verificación manual posterior al despliegue
 

@@ -109,6 +109,17 @@ Diez frases que hay que saber decir:
     en 30 instancias aleatorias; eso es evidencia, no demostración; la demostración es el
     argumento de la cota."
 
+### Respuesta sobre rendimiento en vivo
+
+En producción no se ejecuta sin límite la mejora local sobre `ciudad`: la API
+de Vercel le asigna 3 segundos y devuelve la mejor propuesta factible hallada.
+El exacto se reserva para instancias de hasta 30 lotes; en una instancia
+grande se rechaza de forma explícita en vez de dejar la interfaz esperando.
+Así se separan dos afirmaciones: el exacto puede certificar optimalidad en
+instancias pequeñas, mientras la heurística grande prioriza una decisión
+rápida y honesta. Las mediciones y la política completa están en
+[docs/RENDIMIENTO.md](RENDIMIENTO.md).
+
 ---
 
 ## 1. El problema en palabras simples

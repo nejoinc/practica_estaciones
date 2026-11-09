@@ -32,6 +32,12 @@ py main.py interfaz [--puerto 8765] [--no-abrir]       interfaz web de la feria
 py -m unittest discover -s tests                       tests
 ```
 
+Para Vercel, `api/index.py` expone la misma API mediante funciones serverless.
+La guía está en [docs/DESPLIEGUE_VERCEL.md](docs/DESPLIEGUE_VERCEL.md). En el
+despliegue público, las instancias de más de 30 lotes usan `propia_ls` con un
+límite de 3 segundos; `exacto` se reserva para instancias pequeñas y la
+comparación grande omite ese método para mantener una respuesta fluida.
+
 `parte4` imprime la tabla de estaciones y escribe un mapa HTML autocontenido (se abre con doble
 clic) en `salidas/mapa_<instancia>_<método>.html`. Sin `--metodo` decide por tamaño: con más de
 30 lotes (como ciudad) usa `propia_ls`; si no, el exacto con límite de 60 s.
