@@ -131,6 +131,18 @@ class Modelo:
         self._validar_estacion(codigo_lote, tipo)
         return list(self._coberturas[(codigo_lote, tipo)])
 
+    def nodos_alcanzables(self, codigo_lote, tipo):
+        """{nodo: distancia} de los nodos a los que la estación llega dentro de su radio.
+
+        Es el mismo criterio de `cobertura` (Dijkstra por la red vial con
+        sentido de las calles), pero sin filtrar por incidentes. Se usa solo
+        para dibujar el alcance de la estación en el mapa.
+        """
+        self._validar_estacion(codigo_lote, tipo)
+        radio = self._a_entero(self.parametros["tipos"][tipo]["radio_m"])
+        nodo = self._lote_por_codigo[codigo_lote].nodo
+        return dijkstra_con_corte(self.instancia.grafo, nodo, radio)
+
     def cobertura_mask(self, codigo_lote, tipo):
         """Lo mismo que `cobertura`, pero como máscara de bits."""
         self._validar_estacion(codigo_lote, tipo)

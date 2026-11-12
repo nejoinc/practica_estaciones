@@ -215,6 +215,48 @@ def _tipos_para_el_mapa(modelo):
     return tipos
 
 
+def _cruz(origen, punto_a, punto_b):
+    """Producto cruz de (a - origen) x (b - origen): > 0 si el giro es a la izquierda."""
+    return ((punto_a[0] - origen[0]) * (punto_b[1] - origen[1])
+            - (punto_a[1] - origen[1]) * (punto_b[0] - origen[0]))
+
+
+def envolvente_convexa(puntos):
+    """Envolvente convexa (cadena monótona de Andrew) de una lista de (lat, lon)."""
+    unicos = sorted(set(puntos))
+    if len(unicos) <= 2:
+        return unicos
+    inferior = []
+    for punto in unicos:
+        while len(inferior) >= 2 and _cruz(inferior[-2], inferior[-1], punto) <= 0:
+            inferior.pop()
+        inferior.append(punto)
+    superior = []
+    for punto in reversed(unicos):
+        while len(superior) >= 2 and _cruz(superior[-2], superior[-1], punto) <= 0:
+            superior.pop()
+        superior.append(punto)
+    return inferior[:-1] + superior[:-1]
+
+
+def contorno_de_alcance(modelo, codigo_lote, tipo):
+    """Contorno [[lat, lon], ...] de los nodos que la estación alcanza por la red vial.
+
+    Es la envolvente convexa de esos nodos: un contorno aproximado (puede
+    incluir manzanas a las que no se llega). Lo que cuenta para el modelo
+    son los incidentes cubiertos, que el mapa resalta aparte.
+    """
+    nodos = modelo.instancia.nodos
+    puntos = []
+    for nodo in modelo.nodos_alcanzables(codigo_lote, tipo):
+        latitud, longitud = nodos[nodo]
+        puntos.append((round(latitud, 6), round(longitud, 6)))
+    contorno = []
+    for latitud, longitud in envolvente_convexa(puntos):
+        contorno.append([latitud, longitud])
+    return contorno
+
+
 def _lotes_para_el_mapa(modelo, resultado):
     """Cada lote con su posición y, si se construye ahí, los datos de su estación."""
     fila_por_lote = {}
@@ -228,7 +270,10 @@ def _lotes_para_el_mapa(modelo, resultado):
         if lote.codigo in fila_por_lote:
             fila = fila_por_lote[lote.codigo]
             estacion = {"tipo": fila["tipo"], "nombre": fila["estacion"],
-                        "costo": fila["costo"], "casos": fila["casos"]}
+                        "costo": fila["costo"], "casos": fila["casos"],
+                        "radio_m": modelo.parametros["tipos"][fila["tipo"]]["radio_m"],
+                        "cubre": modelo.cobertura(lote.codigo, fila["tipo"]),
+                        "alcance": contorno_de_alcance(modelo, lote.codigo, fila["tipo"])}
         lotes.append({"codigo": lote.codigo, "lat": latitud, "lon": longitud, "estacion": estacion})
     return lotes
 

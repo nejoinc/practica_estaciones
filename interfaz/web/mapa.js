@@ -115,6 +115,7 @@ const MapaEstaciones = (function () {
       datos: null,
       grupos: {},
       marcasPorLote: {},
+      capaDeAlcance: null,
       visibles: {},
       fondo: null,
       leyenda: null
@@ -179,6 +180,12 @@ const MapaEstaciones = (function () {
     casos.appendChild(elemento("span", "ficha-cifra", Formato.numero(lote.estacion.casos)));
     casos.appendChild(document.createTextNode(" casos (contados solo para esta estación)"));
     ficha.appendChild(casos);
+    if (lote.estacion.radio_m !== undefined) {
+      const alcance = elemento("span", "ficha-linea", "Alcance ");
+      alcance.appendChild(elemento("span", "ficha-cifra", Formato.numero(lote.estacion.radio_m) + " m"));
+      alcance.appendChild(document.createTextNode(" por la red vial (zona sombreada)"));
+      ficha.appendChild(alcance);
+    }
     return ficha;
   }
 
@@ -200,6 +207,7 @@ const MapaEstaciones = (function () {
   // ---------------------------------------------------------------- capas
 
   function quitarGrupos(vista) {
+    ocultarAlcance(vista);
     Object.keys(vista.grupos).forEach(function (clave) {
       vista.mapa.removeLayer(vista.grupos[clave]);
     });
@@ -245,6 +253,61 @@ const MapaEstaciones = (function () {
     });
   }
 
+  // ---------------------------------------------------------------- alcance de una estación
+
+  // Al abrir la ficha de una estación se dibuja su alcance: el contorno de las
+  // calles a las que llega dentro de su radio (calculado en Python por la red
+  // vial) y un aro sobre cada incidente que esa estación cubre.
+  function mostrarAlcance(vista, lote) {
+    ocultarAlcance(vista);
+    const estacion = lote.estacion;
+    const datos = vista.datos;
+    if (!estacion || !datos) {
+      return;
+    }
+    const color = colorDeTipo(estacion.tipo);
+    const capa = L.layerGroup();
+    if (estacion.alcance && estacion.alcance.length >= 3) {
+      L.polygon(estacion.alcance, {
+        renderer: vista.renderizador,
+        interactive: false,
+        color: color,
+        weight: 1.5,
+        opacity: 0.9,
+        dashArray: "6 4",
+        fillColor: color,
+        fillOpacity: 0.12
+      }).addTo(capa);
+    }
+    const cubre = {};
+    (estacion.cubre || []).forEach(function (identificador) {
+      cubre[identificador] = true;
+    });
+    datos.incidentes.forEach(function (fila) {
+      if (cubre[fila[0]]) {
+        L.circleMarker([fila[1], fila[2]], {
+          renderer: vista.renderizador,
+          interactive: false,
+          radius: 5.5,
+          weight: 2,
+          color: color,
+          opacity: 1,
+          fill: false
+        }).addTo(capa);
+      }
+    });
+    capa.addTo(vista.mapa);
+    vista.capaDeAlcance = capa;
+    vista.alcanceDe = lote.codigo;
+  }
+
+  function ocultarAlcance(vista) {
+    if (vista.capaDeAlcance) {
+      vista.mapa.removeLayer(vista.capaDeAlcance);
+      vista.capaDeAlcance = null;
+    }
+  }
+
   function iconoDeLote(lote, datos) {
     if (lote.estacion) {
       const forma = formaDeTipo(datos, lote.estacion.tipo);
@@ -287,6 +350,14 @@ const MapaEstaciones = (function () {
       if (lote.estacion) {
         descripcion = lote.codigo + " · " + lote.estacion.nombre;
         marca.bindPopup(fichaDeEstacion(lote, datos), { maxWidth: 260 });
+        marca.on("popupopen", function () {
+          mostrarAlcance(vista, lote);
+        });
+        marca.on("popupclose", function () {
+          if (vista.capaDeAlcance && vista.alcanceDe === lote.codigo) {
+            ocultarAlcance(vista);
+          }
+        });
         clave = "estaciones-" + lote.estacion.tipo;
       } else {
         descripcion = "Lote " + lote.codigo + " · sin estación";
@@ -583,7 +654,8 @@ const MapaEstaciones = (function () {
     }
     plegable.appendChild(seccionDeFondo(vista));
     plegable.appendChild(elemento("p", "leyenda-nota",
-      "La cobertura se mide por la red vial con sentido de las calles; por eso no se dibujan círculos de radio."));
+      "La cobertura se mide por la red vial con sentido de las calles, no con círculos. " +
+      "Haz clic en una estación para ver su alcance."));
     caja.replaceChildren(plegable);
   }
 

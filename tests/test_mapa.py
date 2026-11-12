@@ -101,6 +101,23 @@ class DatosParaElNavegador(unittest.TestCase):
         self.assertEqual(primero[0], 1)
         self.assertEqual(primero[5], "2025-01-07 08:00")
 
+    def test_estaciones_traen_su_alcance(self):
+        modelo = Modelo(cargar_instancia("comuna"))
+        resultado = resolver(modelo)
+        datos = datos_del_mapa(modelo, resultado)
+        for lote in datos["lotes"]:
+            estacion = lote["estacion"]
+            if not estacion:
+                continue
+            self.assertEqual(estacion["cubre"], modelo.cobertura(lote["codigo"], estacion["tipo"]))
+            self.assertEqual(len(estacion["cubre"]), estacion["casos"])
+            self.assertEqual(estacion["radio_m"], modelo.parametros["tipos"][estacion["tipo"]]["radio_m"])
+            self.assertGreaterEqual(len(estacion["alcance"]), 3)
+
+    def test_envolvente_convexa_descarta_puntos_interiores(self):
+        puntos = [(0, 0), (0, 2), (2, 2), (2, 0), (1, 1), (1, 0)]
+        self.assertEqual(sorted(modulo_mapa.envolvente_convexa(puntos)), [(0, 0), (0, 2), (2, 0), (2, 2)])
+
     def test_sin_propuesta_nada_cubierto(self):
         modelo = Modelo(cargar_instancia("pequena"))
         datos = datos_del_mapa(modelo)
