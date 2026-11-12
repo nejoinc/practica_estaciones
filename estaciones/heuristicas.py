@@ -75,39 +75,107 @@ def _elegir_siguiente(modelo, propuesta, puntaje):
     return mejor_opcion
 
 
-def _elegir_siguiente_con_estado(modelo, costo_total, cubiertos, lotes_usados, puntaje):
-    """Busca la siguiente estación sin reconstruir el estado de la propuesta."""
+def _peso_de_opcion(modelo, opcion):
+    """Peso del tipo de la opción (una estación solo cubre incidentes de su tipo)."""
+    return modelo.pesos[opcion["tipo"]]
+
+
+def _elegir_siguiente_con_estado(modelo, costo_total, cubiertos, lotes_usados, puntaje, cotas=None):
+    """Busca la siguiente estación sin reconstruir el estado de la propuesta.
+
+    Da exactamente la misma elección que `_elegir_siguiente`, pero más rápido:
+    - una estación solo cubre incidentes de SU tipo, así que su valor nuevo es
+      (bits nuevos) * peso del tipo: un solo `&` en vez de uno por tipo;
+    - `cotas[i]` es un valor nuevo que la opción i NO puede superar (el que
+      tenía antes: al cubrir más incidentes el valor nuevo solo baja). Se
+      revisan las opciones de mayor a menor cota y se para cuando la cota ya
+      no alcanza a la mejor: esas opciones no pueden ganar. Los empates se
+      resuelven por la posición en `modelo.opciones`, como en el original.
+    """
     presupuesto_restante = modelo.presupuesto - costo_total
-    mejor_opcion = None
-    mejor_puntaje = None
-    for opcion in modelo.opciones:
+    libres = ~cubiertos
+    opciones = modelo.opciones
+    candidatas = []
+    for posicion in range(len(opciones)):
+        opcion = opciones[posicion]
         if opcion["lote"] in lotes_usados:
             continue
         if opcion["costo"] > presupuesto_restante:
             continue
-        valor_nuevo = modelo.valor_mask(opcion["mascara"] & ~cubiertos)
+        if cotas is not None:
+            cota = cotas[posicion]
+            if cota == 0:
+                continue
+            candidatas.append((puntaje(cota, opcion["costo"]), posicion))
+        else:
+            candidatas.append((None, posicion))
+    if cotas is not None:
+        candidatas.sort(key=lambda par: (par[0], -par[1]), reverse=True)
+    mejor_posicion = None
+    mejor_puntaje = None
+    for cota_puntaje, posicion in candidatas:
+        if mejor_posicion is not None and cota_puntaje is not None and cota_puntaje < mejor_puntaje:
+            break
+        opcion = opciones[posicion]
+        valor_nuevo = (opcion["mascara"] & libres).bit_count() * _peso_de_opcion(modelo, opcion)
+        if cotas is not None:
+            cotas[posicion] = valor_nuevo
         if valor_nuevo == 0:
             continue
         puntaje_de_la_opcion = puntaje(valor_nuevo, opcion["costo"])
-        if mejor_opcion is None or puntaje_de_la_opcion > mejor_puntaje:
-            mejor_opcion = opcion
+        if (mejor_posicion is None or puntaje_de_la_opcion > mejor_puntaje
+                or (puntaje_de_la_opcion == mejor_puntaje and posicion < mejor_posicion)):
+            mejor_posicion = posicion
             mejor_puntaje = puntaje_de_la_opcion
-    return mejor_opcion
+    if mejor_posicion is None:
+        return None
+    return opciones[mejor_posicion]
 
 
-def goloso(modelo, puntaje, estaciones_iniciales=None):
+def _cotas_iniciales(modelo):
+    """Valor de cada opción sola (cota válida para cualquier propuesta), en caché."""
+    cotas = getattr(modelo, "_cotas_del_goloso", None)
+    if cotas is None:
+        cotas = []
+        for opcion in modelo.opciones:
+            cotas.append(opcion["mascara"].bit_count() * _peso_de_opcion(modelo, opcion))
+        modelo._cotas_del_goloso = cotas
+    return list(cotas)
+
+
+def _cotas_exactas(modelo, cubiertos):
+    """Valor nuevo exacto de cada opción dado lo ya cubierto.
+
+    Sirve de cota para cualquier propuesta que cubra AL MENOS eso: la búsqueda
+    local la calcula una vez por cada "resto" y la reutiliza en todos los
+    vecinos que salen de ese resto.
+    """
+    libres = ~cubiertos
+    cotas = []
+    for opcion in modelo.opciones:
+        cotas.append((opcion["mascara"] & libres).bit_count() * _peso_de_opcion(modelo, opcion))
+    return cotas
+
+
+def goloso(modelo, puntaje, estaciones_iniciales=None, cotas=None):
     """Agrega estaciones una a una (la de mayor puntaje) hasta que ninguna aporte.
 
     `estaciones_iniciales` permite arrancar desde una propuesta parcial;
-    la usa `propia_ls` para completar propuestas.
+    la usa `propia_ls` para completar propuestas. `cotas` (opcional) son
+    cotas válidas del valor nuevo de cada opción para esa propuesta parcial;
+    solo aceleran, nunca cambian la elección.
     """
     propuesta = []
     if estaciones_iniciales is not None:
         propuesta = list(estaciones_iniciales)
     costo_total, cubiertos, lotes_usados = resumir(modelo, propuesta)
+    if cotas is None:
+        cotas = _cotas_iniciales(modelo)
+    else:
+        cotas = list(cotas)
     while True:
         opcion = _elegir_siguiente_con_estado(
-            modelo, costo_total, cubiertos, lotes_usados, puntaje
+            modelo, costo_total, cubiertos, lotes_usados, puntaje, cotas
         )
         if opcion is None:
             return propuesta
@@ -194,21 +262,91 @@ def _sin_posiciones(propuesta, posiciones):
     return restante
 
 
+def _contexto_de_resto(modelo, resto):
+    """Lo que comparten todos los vecinos que salen de un mismo `resto`.
+
+    Costo, cobertura y lotes del resto, más las opciones ordenadas de mayor a
+    menor cota (su valor nuevo exacto respecto al resto). Así completar cada
+    vecino no recorre todas las opciones: ver `_rellenar`.
+    """
+    costo_resto, cubiertos, lotes_usados = resumir(modelo, resto)
+    cotas = _cotas_exactas(modelo, cubiertos)
+    orden = []
+    for posicion in range(len(modelo.opciones)):
+        if cotas[posicion] > 0:
+            opcion = modelo.opciones[posicion]
+            orden.append((puntaje_razon(cotas[posicion], opcion["costo"]), posicion))
+    orden.sort(key=lambda par: (par[0], -par[1]), reverse=True)
+    return {"resto": resto, "costo": costo_resto, "cubiertos": cubiertos,
+            "lotes": lotes_usados, "orden": orden}
+
+
+def _rellenar(modelo, contexto, opcion_nueva):
+    """resto + opcion_nueva, completado con el goloso de la razón.
+
+    Devuelve (propuesta, valor, costo) y elige EXACTAMENTE lo mismo que
+    `goloso(modelo, puntaje_razon, resto + [nueva])`: se revisan las opciones
+    en orden de cota decreciente y se para cuando la cota ya no alcanza a la
+    mejor (el valor nuevo nunca supera la cota, porque la propuesta cubre al
+    menos lo del resto). Los empates van a la opción de menor posición.
+    """
+    opciones = modelo.opciones
+    pesos = modelo.pesos
+    presupuesto = modelo.presupuesto
+    propuesta = contexto["resto"] + [(opcion_nueva["lote"], opcion_nueva["tipo"])]
+    costo_total = contexto["costo"] + opcion_nueva["costo"]
+    cubiertos = contexto["cubiertos"] | opcion_nueva["mascara"]
+    lotes_usados = set(contexto["lotes"])
+    lotes_usados.add(opcion_nueva["lote"])
+    orden = contexto["orden"]
+    agotadas = set()
+    while True:
+        restante = presupuesto - costo_total
+        libres = ~cubiertos
+        mejor_posicion = None
+        mejor_puntaje = None
+        for cota_puntaje, posicion in orden:
+            if mejor_posicion is not None and cota_puntaje < mejor_puntaje:
+                break
+            if posicion in agotadas:
+                continue
+            opcion = opciones[posicion]
+            if opcion["lote"] in lotes_usados or opcion["costo"] > restante:
+                continue
+            valor_nuevo = (opcion["mascara"] & libres).bit_count() * pesos[opcion["tipo"]]
+            if valor_nuevo == 0:
+                # Con más cobertura seguirá en 0: no se vuelve a mirar.
+                agotadas.add(posicion)
+                continue
+            puntaje_de_la_opcion = puntaje_razon(valor_nuevo, opcion["costo"])
+            if (mejor_posicion is None or puntaje_de_la_opcion > mejor_puntaje
+                    or (puntaje_de_la_opcion == mejor_puntaje and posicion < mejor_posicion)):
+                mejor_posicion = posicion
+                mejor_puntaje = puntaje_de_la_opcion
+        if mejor_posicion is None:
+            return propuesta, modelo.valor_mask(cubiertos), costo_total
+        opcion = opciones[mejor_posicion]
+        propuesta.append((opcion["lote"], opcion["tipo"]))
+        costo_total += opcion["costo"]
+        cubiertos |= opcion["mascara"]
+        lotes_usados.add(opcion["lote"])
+
+
 def _reemplazos(modelo, propuesta):
     """Vecinos que cambian UNA estación por otra (otro tipo u otro lote libre)."""
     vecinos = []
     for posicion in range(len(propuesta)):
         resto = _sin_posiciones(propuesta, [posicion])
-        costo_resto, cubiertos, lotes_usados = resumir(modelo, resto)
+        contexto = _contexto_de_resto(modelo, resto)
         for opcion in modelo.opciones:
             nueva = (opcion["lote"], opcion["tipo"])
             if nueva == propuesta[posicion]:
                 continue
-            if opcion["lote"] in lotes_usados:
+            if opcion["lote"] in contexto["lotes"]:
                 continue
-            if costo_resto + opcion["costo"] > modelo.presupuesto:
+            if contexto["costo"] + opcion["costo"] > modelo.presupuesto:
                 continue
-            vecinos.append(resto + [nueva])
+            vecinos.append((contexto, opcion))
     return vecinos
 
 
@@ -216,9 +354,9 @@ def _quitar_uno_o_dos(modelo, propuesta):
     """Vecinos que quitan una o dos estaciones (el hueco se rellena después)."""
     vecinos = []
     for primera in range(len(propuesta)):
-        vecinos.append(_sin_posiciones(propuesta, [primera]))
+        vecinos.append((_sin_posiciones(propuesta, [primera]), None))
         for segunda in range(primera + 1, len(propuesta)):
-            vecinos.append(_sin_posiciones(propuesta, [primera, segunda]))
+            vecinos.append((_sin_posiciones(propuesta, [primera, segunda]), None))
     return vecinos
 
 
@@ -233,13 +371,13 @@ def _dobles_cambios(modelo, propuesta):
     for primera in range(len(propuesta)):
         for segunda in range(primera + 1, len(propuesta)):
             resto = _sin_posiciones(propuesta, [primera, segunda])
-            costo_resto, cubiertos, lotes_usados = resumir(modelo, resto)
+            contexto = _contexto_de_resto(modelo, resto)
             for opcion in modelo.opciones:
-                if opcion["lote"] in lotes_usados:
+                if opcion["lote"] in contexto["lotes"]:
                     continue
-                if costo_resto + opcion["costo"] > modelo.presupuesto:
+                if contexto["costo"] + opcion["costo"] > modelo.presupuesto:
                     continue
-                vecinos.append(resto + [(opcion["lote"], opcion["tipo"])])
+                vecinos.append((contexto, opcion))
     return vecinos
 
 
@@ -251,15 +389,20 @@ def _mejor_entre(modelo, actual, vecinos, plazo=None):
     revisar vecinos y devuelve lo mejor que encontró hasta ahí.
     """
     mejor = None
-    for vecino in vecinos:
+    # (valor, costo) de la referencia: se calcula una vez, no por cada vecino.
+    valor_referencia, costo_referencia = _valor_y_costo(modelo, actual)
+    for vecino, opcion in vecinos:
         if _se_acabo_el_tiempo(plazo):
             break
-        completo = goloso(modelo, puntaje_razon, vecino)
-        referencia = actual
-        if mejor is not None:
-            referencia = mejor
-        if _es_mejor(modelo, completo, referencia):
+        if opcion is None:
+            completo = goloso(modelo, puntaje_razon, vecino)
+            valor, costo = _valor_y_costo(modelo, completo)
+        else:
+            completo, valor, costo = _rellenar(modelo, vecino, opcion)
+        # Misma regla que `_es_mejor`: más valor, o el mismo valor gastando menos.
+        if valor > valor_referencia or (valor == valor_referencia and costo < costo_referencia):
             mejor = completo
+            valor_referencia, costo_referencia = valor, costo
     return mejor
 
 

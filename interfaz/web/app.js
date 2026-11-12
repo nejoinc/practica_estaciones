@@ -19,7 +19,7 @@
   const PRESUPUESTO_MAXIMO = 1000000000;
   const PESO_MAXIMO = 1000000;
   const LIMITE_MAXIMO = 600;
-  const LIMITE_POR_DEFECTO = 30;
+  const LIMITE_POR_DEFECTO = 10;
   const CONSULTA_TELEFONO = "(max-width: 720px)";
 
   const $ = function (id) {

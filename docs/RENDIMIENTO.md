@@ -23,7 +23,7 @@ las coberturas; los tiempos de método se miden después de tener el modelo.
 |---|---:|---:|---:|---:|---:|---:|---:|
 | pequena | 5 | 18 | 0,002 s | <0,001 s | <0,001 s | 0,002 s | 0,003 s |
 | comuna | 15 | 913 | 0,2 s | <0,001 s | <0,001 s | 0,13 s | 1,16 s |
-| ciudad | 80 | 5300 | 1,6 s | <0,1 s | <0,1 s | 40–50 s | no viable sin límite |
+| ciudad | 80 | 5300 | 1,6 s | <0,1 s | <0,1 s | ~2 s (antes 13–50 s) | no viable sin límite |
 
 Los tiempos dependen del equipo y no son un certificado universal. La utilidad
 de la medición es identificar el orden de magnitud y detectar regresiones.
