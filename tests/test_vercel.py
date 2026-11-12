@@ -65,16 +65,18 @@ class AdaptadorVercel(unittest.TestCase):
         self.assertIn("attachment", cabeceras["Content-Disposition"])
         self.assertIn(b"datos-del-mapa", contenido)
 
-    def test_limita_exacto_en_instancia_grande(self):
+    def test_exacto_en_instancia_grande_respeta_el_limite(self):
         estado, _cabeceras, contenido = pedir(
             "POST",
             "/api/resolver",
-            {"instancia": "ciudad", "metodo": "exacto", "limite_segundos": 5},
+            {"instancia": "ciudad", "metodo": "exacto", "limite_segundos": 0},
         )
-        self.assertEqual(estado, "400 Bad Request")
-        self.assertIn("reservado", json.loads(contenido)["error"])
+        datos = json.loads(contenido)
+        self.assertEqual(estado, "200 OK")
+        self.assertEqual(datos["limite_segundos"], 0)
+        self.assertFalse(datos["optimo_certificado"])
 
-    def test_comparacion_grande_no_ejecuta_exacto(self):
+    def test_comparacion_grande_ejecuta_todos_los_metodos(self):
         estado, _cabeceras, contenido = pedir(
             "POST",
             "/api/comparar",
@@ -82,7 +84,9 @@ class AdaptadorVercel(unittest.TestCase):
         )
         datos = json.loads(contenido)
         self.assertEqual(estado, "200 OK")
-        self.assertEqual([fila["metodo"] for fila in datos["filas"]], ["base", "propia", "propia_ls"])
+        self.assertEqual([fila["metodo"] for fila in datos["filas"]],
+                         ["base", "propia", "propia_ls", "exacto"])
+        self.assertEqual(datos["limite_segundos"], 1.0)
 
     def test_ruta_desconocida_es_json(self):
         estado, cabeceras, contenido = pedir("POST", "/api/no-existe", {})

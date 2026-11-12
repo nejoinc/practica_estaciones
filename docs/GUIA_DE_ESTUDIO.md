@@ -111,13 +111,13 @@ Diez frases que hay que saber decir:
 
 ### Respuesta sobre rendimiento en vivo
 
-En producción no se ejecuta sin límite la mejora local sobre `ciudad`: la API
-de Vercel le asigna 3 segundos y devuelve la mejor propuesta factible hallada.
-El exacto se reserva para instancias de hasta 30 lotes; en una instancia
-grande se rechaza de forma explícita en vez de dejar la interfaz esperando.
+En producción no se ejecutan sin límite la mejora local ni el exacto sobre
+`ciudad`: la API de Vercel les asigna como máximo 30 segundos y devuelve la
+mejor propuesta factible hallada. La comparación conserva los cuatro métodos,
+para poder estudiar cómo se comportan las heurísticas aunque se queden cortas.
 Así se separan dos afirmaciones: el exacto puede certificar optimalidad en
-instancias pequeñas, mientras la heurística grande prioriza una decisión
-rápida y honesta. Las mediciones y la política completa están en
+instancias pequeñas, mientras en una instancia grande entrega una propuesta
+acotada en tiempo y honesta. Las mediciones y la política completa están en
 [docs/RENDIMIENTO.md](RENDIMIENTO.md).
 
 ---

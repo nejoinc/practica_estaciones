@@ -29,8 +29,8 @@ from estaciones.ejecucion import METODOS, ejecutar_metodo
 _METODOS_CON_CUERPO = {"POST"}
 _LIMITE_CUERPO = 64 * 1024
 _ALMACEN = Almacen()
-_LOTES_MAXIMOS_EXACTO_EN_VIVO = 30
-_LIMITE_HEURISTICA_GRANDE = 3.0
+_LOTES_GRANDES = 30
+_LIMITE_CIUDAD = 30.0
 _RAZONES = {
     200: "OK",
     400: "Bad Request",
@@ -110,16 +110,10 @@ def _configuracion_publica(cuerpo):
 
 
 def _metodo_en_vivo(configuracion, metodo):
-    """Aplica límites de producción sin cambiar el contrato de la interfaz."""
+    """Aplica el límite de 30 s a búsquedas costosas en instancias grandes."""
     cantidad_lotes = len(configuracion["modelo"].instancia.lotes)
-    if metodo == "exacto" and cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
-        raise ErrorDePeticion(
-            400,
-            "El método exacto está reservado para instancias de hasta "
-            f"{_LOTES_MAXIMOS_EXACTO_EN_VIVO} lotes. Usa «Propia + LS» para esta escala.",
-        )
-    if metodo == "propia_ls" and cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
-        return metodo, _LIMITE_HEURISTICA_GRANDE
+    if cantidad_lotes > _LOTES_GRANDES and metodo in ("exacto", "propia_ls"):
+        return metodo, min(configuracion["limite"], _LIMITE_CIUDAD)
     return metodo, configuracion["limite"]
 
 
@@ -140,6 +134,7 @@ def _resolver(cuerpo):
     metodo = validar_metodo(cuerpo.get("metodo") if isinstance(cuerpo, dict) else None)
     configuracion = _configuracion_publica(cuerpo)
     metodo, limite = _metodo_en_vivo(configuracion, metodo)
+    configuracion["limite"] = limite
     resultado, segundos = ejecutar_metodo(configuracion["modelo"], metodo, limite)
     _ALMACEN.guardar_resultado((configuracion["clave"], metodo, limite), resultado)
     return _json(200, respuesta_de_propuesta(configuracion, metodo, resultado, segundos))
@@ -147,12 +142,8 @@ def _resolver(cuerpo):
 
 def _comparar(cuerpo):
     configuracion = _configuracion_publica(cuerpo)
-    cantidad_lotes = len(configuracion["modelo"].instancia.lotes)
-    metodos = METODOS
-    if cantidad_lotes > _LOTES_MAXIMOS_EXACTO_EN_VIVO:
-        metodos = ("base", "propia", "propia_ls")
     filas = []
-    for metodo in metodos:
+    for metodo in METODOS:
         metodo_real, limite = _metodo_en_vivo(configuracion, metodo)
         resultado, segundos = ejecutar_metodo(configuracion["modelo"], metodo_real, limite)
         filas.append({
@@ -163,9 +154,10 @@ def _comparar(cuerpo):
             "tiempo_s": segundos,
             "optimo_certificado": esta_certificado(metodo_real, resultado),
         })
+    _, limite_comun = _metodo_en_vivo(configuracion, "exacto")
     return _json(200, {
         "instancia": configuracion["nombre"],
-        "limite_segundos": configuracion["limite"],
+        "limite_segundos": limite_comun,
         "filas": filas,
     })
 
@@ -174,6 +166,7 @@ def _exportar(cuerpo):
     metodo = validar_metodo(cuerpo.get("metodo") if isinstance(cuerpo, dict) else None)
     configuracion = _configuracion_publica(cuerpo)
     metodo, limite = _metodo_en_vivo(configuracion, metodo)
+    configuracion["limite"] = limite
     tema = "claro" if cuerpo.get("tema") == "claro" else "oscuro"
     clave = (configuracion["clave"], metodo, limite)
     resultado = _ALMACEN.ultimo_resultado(clave)

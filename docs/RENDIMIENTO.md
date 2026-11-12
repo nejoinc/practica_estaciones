@@ -37,9 +37,8 @@ La política está implementada en
    - `exacto` está disponible;
    - `propia_ls` respeta el límite recibido.
 2. Más de 30 lotes:
-   - `propia_ls` recibe un límite interno de 3 segundos;
-   - `exacto` se rechaza con un mensaje explícito;
-   - `comparar` ejecuta `base`, `propia` y `propia_ls`, pero omite `exacto`.
+   - `exacto` y `propia_ls` reciben como máximo 30 segundos;
+   - `comparar` ejecuta los cuatro métodos con el mismo límite efectivo.
 3. La respuesta mantiene el método real utilizado y el campo
    `optimo_certificado`.
 
@@ -67,8 +66,8 @@ La frase recomendada es:
 
 [`tests/test_vercel.py`](../tests/test_vercel.py) verifica que:
 
-- `ciudad + exacto` se rechaza antes de iniciar una búsqueda larga;
-- `ciudad + comparar` no ejecuta `exacto`;
+- `ciudad + exacto` devuelve la mejor propuesta encontrada hasta 30 segundos;
+- `ciudad + comparar` ejecuta también `exacto`, con el mismo límite de 30 segundos;
 - las respuestas siguen siendo JSON y conservan el contrato de la interfaz.
 
 Las pruebas algorítmicas existentes siguen comprobando el óptimo mediante
