@@ -237,6 +237,12 @@ class Validaciones(ServidorDePrueba):
             codigo, _cabeceras, _contenido = self.pedir("GET", ruta)
             self.assertEqual(codigo, 404, ruta)
 
+    def test_logo_se_sirve_como_webp(self):
+        codigo, cabeceras, contenido = self.pedir("GET", "/logos/policia.webp")
+        self.assertEqual(codigo, 200)
+        self.assertEqual(cabeceras["Content-Type"], "image/webp")
+        self.assertEqual(contenido[8:12], b"WEBP")
+
     def test_cabeceras_de_seguridad(self):
         codigo, cabeceras, contenido = self.pedir("GET", "/")
         self.assertEqual(codigo, 200)

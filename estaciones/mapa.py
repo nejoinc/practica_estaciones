@@ -31,6 +31,15 @@ FORMA_POR_TIPO = {
 }
 FORMA_OTRO_TIPO = "rombo"
 
+# Logo de la institución de cada tipo (ruta relativa a interfaz/web). Se
+# muestra en la leyenda y en el popup de la estación, no en los marcadores.
+# Si el archivo no existe, ese tipo simplemente se dibuja sin logo.
+LOGO_POR_TIPO = {
+    "hurto": "logos/policia.webp",
+    "accidente": "logos/transito.webp",
+    "incendio": "logos/bomberos.webp",
+}
+
 # Archivos web que se copian dentro del HTML exportado (mismo dibujo y
 # mismo estilo que la interfaz). Las rutas son relativas a interfaz/web.
 CARPETA_WEB = Path(__file__).resolve().parent.parent / "interfaz" / "web"
@@ -62,6 +71,14 @@ def leer_fechas(carpeta):
 def forma_de_tipo(tipo):
     """Forma con que se dibuja un tipo de estación (cuadrado, triángulo, círculo o rombo)."""
     return FORMA_POR_TIPO.get(tipo, FORMA_OTRO_TIPO)
+
+
+def logo_de_tipo(tipo):
+    """Ruta del logo del tipo (relativa a interfaz/web) o None si no hay archivo."""
+    ruta_relativa = LOGO_POR_TIPO.get(tipo)
+    if ruta_relativa is None or not (CARPETA_WEB / ruta_relativa).is_file():
+        return None
+    return ruta_relativa
 
 
 def nombre_de_estacion(modelo, tipo):
@@ -194,7 +211,7 @@ def _tipos_para_el_mapa(modelo):
     tipos = []
     for tipo in modelo.tipos:
         tipos.append({"tipo": tipo, "estacion": nombre_de_estacion(modelo, tipo),
-                      "forma": forma_de_tipo(tipo)})
+                      "forma": forma_de_tipo(tipo), "logo": logo_de_tipo(tipo)})
     return tipos
 
 
@@ -308,6 +325,12 @@ def _fuentes_incrustadas():
     return "\n".join(reglas)
 
 
+def _logo_incrustado(ruta_relativa):
+    """El logo como data URI (base64): el HTML exportado no apunta a archivos locales."""
+    contenido = (CARPETA_WEB / ruta_relativa).read_bytes()
+    return "data:image/webp;base64," + base64.b64encode(contenido).decode("ascii")
+
+
 def resumen_de_propuesta(modelo, resultado, titulo, detalle):
     """Cifras que el HTML exportado muestra en su cabecera."""
     return {
@@ -330,6 +353,9 @@ def exportar_html(modelo, resultado, fechas=None, titulo="Propuesta", detalle=""
     """
     datos = datos_del_mapa(modelo, resultado, fechas)
     datos["resumen"] = resumen_de_propuesta(modelo, resultado, titulo, detalle)
+    for tipo in datos["tipos"]:
+        if tipo["logo"] is not None:
+            tipo["logo"] = _logo_incrustado(tipo["logo"])
     estilos = [_fuentes_incrustadas()]
     for ruta_relativa in ESTILOS_DEL_EXPORTADO:
         estilos.append(_leer_web(ruta_relativa))

@@ -58,6 +58,14 @@
 .tipo-incendio .figura { fill: var(--color-incendio); }
 .tipo-otro .figura { fill: var(--color-otro); }
 
+/* Pictograma propio dentro de la figura (tabla PICTOGRAMAS de mapa.js). Usa el
+   color del borde de la marca: oscuro sobre los rellenos claros del tema oscuro
+   y claro sobre los rellenos oscuros del tema claro. */
+.marca .pictograma {
+  fill: var(--borde-marca);
+  stroke: none;
+}
+
 /* Lote sin estación: rombo hueco gris. */
 .marca-lote .figura {
   fill: transparent;
@@ -156,6 +164,7 @@ details[open] > .leyenda-titulo {
 }
 
 .leyenda-fila input {
+  flex: none; /* no se encoge cuando el texto ocupa dos líneas: filas alineadas */
   width: 16px;
   height: 16px;
   margin: 0;
@@ -176,6 +185,17 @@ details[open] > .leyenda-titulo {
   flex: none;
   width: 14px;
   height: 14px;
+}
+
+/* Símbolo de estación en la leyenda: más grande para que se lea el pictograma. */
+.simbolo.simbolo-estacion {
+  width: 20px;
+  height: 20px;
+}
+
+.simbolo.simbolo-ficha {
+  width: 40px;
+  height: 40px;
 }
 
 .simbolo svg {
@@ -359,4 +379,50 @@ details[open] > .leyenda-titulo {
   font-family: var(--fuente-cifras);
   font-variant-numeric: tabular-nums;
   color: var(--texto);
+}
+
+/* Logos de las instituciones (leyenda y popup de estación). La chapa clara
+   detrás hace que el logo se vea igual en tema claro y oscuro. */
+.logo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Hueco del mismo tamaño cuando un tipo no tiene logo: la fila no se desalinea. */
+.logo-hueco {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+}
+
+.logo-leyenda {
+  width: 26px;
+  height: 26px;
+  padding: 1px;
+}
+
+.logo-ficha {
+  width: 40px;
+  height: 40px;
+  padding: 2px;
+}
+
+.ficha-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
 }

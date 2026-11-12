@@ -58,6 +58,7 @@ TIPOS_DE_CONTENIDO = {
     ".ttf": "font/ttf",
     ".txt": "text/plain; charset=utf-8",
     ".svg": "image/svg+xml",
+    ".webp": "image/webp",
 }
 
 # Política de contenido: solo archivos propios; imágenes también de las

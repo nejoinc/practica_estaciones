@@ -30,9 +30,24 @@ const MapaEstaciones = (function () {
     rombo: '<polygon class="figura" points="10,1.2 18.8,10 10,18.8 1.2,10"/>'
   };
 
-  function svgDeForma(forma) {
+  // Pictogramas propios (dibujados para este proyecto, no son logos) que van
+  // DENTRO de la figura del tipo. Única tabla de pictogramas: marcas, leyenda
+  // y popup la leen de aquí. Mismo sistema de coordenadas que FIGURAS (20x20);
+  // cada uno cabe en el interior de su figura. Color: ver .pictograma en mapa.css.
+  const PICTOGRAMAS = {
+    // Escudo/placa (CAI).
+    hurto: '<path class="pictograma" d="M10 5.1 14.2 6.6V10.1C14.2 12.5 12.5 14.2 10 15.1 7.5 14.2 5.8 12.5 5.8 10.1V6.6Z"/>',
+    // Cono de tránsito con franja y base (tránsito). Más abajo: el triángulo es angosto arriba.
+    accidente: '<path class="pictograma" d="M10 7.4 11.1 10.1H8.9ZM8.5 11.2H11.5L12.3 13.9H7.7ZM6.6 14.5H13.4V15.9H6.6Z"/>',
+    // Llama (bomberos).
+    incendio: '<path class="pictograma" d="M10 4.5C10.7 6.9 13.9 8.2 13.9 11.5 13.9 13.7 12.2 15.3 10 15.3 7.8 15.3 6.1 13.7 6.1 11.5 6.1 9.7 7.2 8.6 8 7.7 8.1 9.2 8.8 10.1 9.5 10.3 9 8.3 9.4 6.2 10 4.5Z"/>'
+  };
+
+  // `tipo` es opcional: si tiene pictograma, se dibuja dentro de la figura.
+  function svgDeForma(forma, tipo) {
     const figura = FIGURAS[forma] || FIGURAS.rombo;
-    return '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">' + figura + "</svg>";
+    const pictograma = (tipo && Object.prototype.hasOwnProperty.call(PICTOGRAMAS, tipo)) ? PICTOGRAMAS[tipo] : "";
+    return '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">' + figura + pictograma + "</svg>";
   }
 
   // Clase CSS del color de un tipo; los tipos nuevos usan un color de reserva.
@@ -112,11 +127,50 @@ const MapaEstaciones = (function () {
     return vista;
   }
 
+  // Logo de la institución del tipo. La ruta (o el data URI en el HTML
+  // exportado) la manda Python en datos.tipos[].logo; null = sin logo.
+  function logoDeTipo(datos, tipo) {
+    for (let posicion = 0; posicion < datos.tipos.length; posicion += 1) {
+      if (datos.tipos[posicion].tipo === tipo) {
+        return datos.tipos[posicion].logo || null;
+      }
+    }
+    return null;
+  }
+
+  // <img> del logo sobre una chapa clara (se ve igual en tema claro y oscuro).
+  // Si la imagen no carga, se quita la imagen y queda el hueco vacío del mismo
+  // tamaño: nunca un ícono roto y la fila no se desalinea.
+  function imagenDeLogo(ruta, clase, texto) {
+    const chapa = elemento("span", "logo " + clase);
+    const imagen = document.createElement("img");
+    imagen.alt = texto;
+    imagen.decoding = "async";
+    imagen.addEventListener("error", function () {
+      imagen.remove();
+      chapa.className = "logo-hueco " + clase;
+    });
+    imagen.src = ruta;
+    chapa.appendChild(imagen);
+    return chapa;
+  }
+
   // ---------------------------------------------------------------- fichas (popups)
 
-  function fichaDeEstacion(lote) {
+  function fichaDeEstacion(lote, datos) {
     const ficha = elemento("div");
-    ficha.appendChild(elemento("span", "ficha-titulo", lote.codigo));
+    const titulo = elemento("span", "ficha-titulo", lote.codigo);
+    const tipo = lote.estacion.tipo;
+    const logo = logoDeTipo(datos, tipo);
+    const cabecera = elemento("div", "ficha-cabecera");
+    if (logo) {
+      cabecera.appendChild(imagenDeLogo(logo, "logo-ficha", "Logo de " + lote.estacion.nombre));
+    } else {
+      // Sin logo: el pictograma del tipo ocupa su lugar (misma cabecera para todos).
+      cabecera.appendChild(simboloDeForma(formaDeTipo(datos, tipo), claseDeTipo(tipo) + " simbolo-ficha", tipo));
+    }
+    cabecera.appendChild(titulo);
+    ficha.appendChild(cabecera);
     ficha.appendChild(elemento("span", "ficha-linea", lote.estacion.nombre + " · " + lote.estacion.tipo));
     const costo = elemento("span", "ficha-linea", "Costo ");
     costo.appendChild(elemento("span", "ficha-cifra", Formato.numero(lote.estacion.costo) + " M"));
@@ -196,10 +250,10 @@ const MapaEstaciones = (function () {
       const forma = formaDeTipo(datos, lote.estacion.tipo);
       return L.divIcon({
         className: "marca marca-estacion " + claseDeTipo(lote.estacion.tipo),
-        html: svgDeForma(forma),
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-        popupAnchor: [0, -11]
+        html: svgDeForma(forma, lote.estacion.tipo),
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+        popupAnchor: [0, -13]
       });
     }
     return L.divIcon({
@@ -232,7 +286,7 @@ const MapaEstaciones = (function () {
       let descripcion;
       if (lote.estacion) {
         descripcion = lote.codigo + " · " + lote.estacion.nombre;
-        marca.bindPopup(fichaDeEstacion(lote), { maxWidth: 260 });
+        marca.bindPopup(fichaDeEstacion(lote, datos), { maxWidth: 260 });
         clave = "estaciones-" + lote.estacion.tipo;
       } else {
         descripcion = "Lote " + lote.codigo + " · sin estación";
@@ -385,7 +439,9 @@ const MapaEstaciones = (function () {
   }
 
   // Una fila de la leyenda con su casilla para mostrar/ocultar la capa.
-  function filaDeCapa(vista, clave, simbolo, texto, cantidad) {
+  // `logo`: undefined = fila sin columna de logo; null = la fila reserva el hueco
+  // (tipo sin archivo de logo) para que quede alineada con las demás.
+  function filaDeCapa(vista, clave, simbolo, texto, cantidad, logo) {
     const fila = elemento("label", "leyenda-fila");
     const casilla = document.createElement("input");
     casilla.type = "checkbox";
@@ -396,14 +452,21 @@ const MapaEstaciones = (function () {
     });
     fila.appendChild(casilla);
     fila.appendChild(simbolo);
+    if (logo) {
+      // alt vacío: el nombre de la estación ya está escrito al lado.
+      fila.appendChild(imagenDeLogo(logo, "logo-leyenda", ""));
+    } else if (logo === null) {
+      fila.appendChild(elemento("span", "logo-hueco logo-leyenda"));
+    }
     fila.appendChild(elemento("span", null, texto));
     fila.appendChild(elemento("span", "cuenta", Formato.numero(cantidad)));
     return fila;
   }
 
-  function simboloDeForma(forma, clase) {
+  function simboloDeForma(forma, clase, tipo) {
     const simbolo = elemento("span", "simbolo marca " + clase);
-    simbolo.innerHTML = svgDeForma(forma); // SVG fijo de este archivo, sin datos de la instancia.
+    // SVG fijo de este archivo: `tipo` solo elige una entrada de PICTOGRAMAS, nunca se escribe.
+    simbolo.innerHTML = svgDeForma(forma, tipo);
     return simbolo;
   }
 
@@ -434,8 +497,9 @@ const MapaEstaciones = (function () {
       const cantidad = datos.lotes.filter(function (lote) {
         return lote.estacion && lote.estacion.tipo === tipo.tipo;
       }).length;
-      const simbolo = simboloDeForma(tipo.forma, claseDeTipo(tipo.tipo));
-      conjunto.appendChild(filaDeCapa(vista, "estaciones-" + tipo.tipo, simbolo, tipo.estacion, cantidad));
+      const simbolo = simboloDeForma(tipo.forma, claseDeTipo(tipo.tipo) + " simbolo-estacion", tipo.tipo);
+      conjunto.appendChild(filaDeCapa(vista, "estaciones-" + tipo.tipo, simbolo, tipo.estacion, cantidad,
+        tipo.logo || null));
     });
     const libres = datos.lotes.filter(function (lote) {
       return !lote.estacion;

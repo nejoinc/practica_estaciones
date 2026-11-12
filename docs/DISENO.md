@@ -125,3 +125,46 @@ Capturas con Chrome sin ventana (Chrome DevTools Protocol, viewport exacto) en 1
 comprobando `aria-expanded` y `localStorage`); estados vacío, de carga, de error y de
 resultado; ciudad completa; y el mapa exportado abierto como archivo. No se probó con un lector
 de pantalla real ni en navegadores distintos de Chrome.
+
+## 7. Logos
+
+La leyenda (fila de cada tipo de estación) y el popup de cada estación muestran el logo de la
+institución; los marcadores llevan un pictograma propio (ver 7.1), no el logo. La tabla de rutas es `LOGO_POR_TIPO` en
+`estaciones/mapa.py`; si el archivo no existe, la leyenda reserva el hueco del logo (las filas
+quedan alineadas) y el popup muestra el pictograma del tipo en su lugar. En la interfaz el
+logo se pide como `logos/<archivo>.webp`; en el HTML exportado va incrustado como data URI
+(base64), así que el archivo sigue siendo autocontenido.
+
+| Tipo | Archivo | Origen | Licencia |
+|---|---|---|---|
+| hurto (CAI) | `interfaz/web/logos/policia.webp` | Wikimedia Commons, [File:Coat of arms of National Police of Colombia.svg](https://commons.wikimedia.org/wiki/File:Coat_of_arms_of_National_Police_of_Colombia.svg) (escudo de la Policía Nacional de Colombia, vectorizado) | CC BY-SA 3.0 según la página de Commons |
+| accidente (tránsito) | `interfaz/web/logos/transito.webp` | Wikimedia Commons, [File:Distintivo de la Dirección de Tránsito y Transporte (Colombia).svg](https://commons.wikimedia.org/wiki/File:Distintivo_de_la_Direcci%C3%B3n_de_Tr%C3%A1nsito_y_Transporte_(Colombia).svg), autor CarlosArturoAcosta (dibujo propio del distintivo de la Dirección de Tránsito y Transporte de la Policía Nacional). **No es oficial de Medellín**: la Secretaría de Movilidad de Medellín no publica un logo propio | CC BY-SA 4.0 según la página de Commons |
+| incendio (bomberos) | `interfaz/web/logos/bomberos.webp` (**pendiente: el archivo no existe**) | No se encontró un logo de Bomberos de Medellín en medellin.gov.co, Wikimedia Commons, Wikidata ni en el PDF del Concejo (revisado el 2026-11-11). Se descartó el escudo de los Bomberos de Bosconia (Cesar) por ser de otro municipio. Mientras no haya archivo, la leyenda reserva el hueco y el popup muestra el pictograma de la llama | — |
+
+Los logos son **ilustrativos, sin respaldo institucional**: el proyecto no está avalado por la
+Policía Nacional, la Secretaría de Movilidad ni Bomberos de Medellín. El de tránsito es de otra
+entidad colombiana, usado con autorización del dueño del proyecto a falta de uno oficial
+publicado. Para añadir el de Bomberos de Medellín basta con dejar `bomberos.webp` (128×128,
+fondo transparente) en `interfaz/web/logos/`; el código ya lo muestra.
+
+Consultado el 2026-11-11. Generación de `policia.webp`: el SVG se pintó con Chrome sin ventana
+a 1000×1000 px con fondo transparente; con Pillow (en un entorno temporal fuera del proyecto,
+no es dependencia del proyecto) se recortó al contenido, se escaló conservando la proporción y
+se centró en un lienzo transparente de 128×128, guardado como WEBP calidad 92 (alfa sin
+pérdida), unos 11 KB. En pantalla va sobre una chapa blanca para verse igual en tema claro y
+oscuro.
+
+`transito.webp` (SVG pintado con Chrome sin ventana sobre fondo transparente) siguió el mismo
+recorte, escalado y lienzo de 128×128 con Pillow en un entorno temporal; WEBP calidad 90, unos
+8,4 KB.
+
+### 7.1 Pictogramas de los marcadores
+
+Cada marcador de estación conserva su figura y color por tipo y lleva dentro un pictograma
+dibujado para este proyecto (no es un logo): escudo/placa para CAI (cuadrado), cono de tránsito
+para tránsito (triángulo) y llama para bomberos (círculo). Viven en una sola tabla,
+`PICTOGRAMAS` en `interfaz/web/mapa.js`, como SVG en línea en la misma retícula 20×20 de las
+figuras, así que el HTML exportado los incluye sin archivos externos. Se pintan con
+`--borde-marca` (oscuro sobre los rellenos claros del tema oscuro, claro sobre los rellenos
+oscuros del tema claro). Para que se lean, el marcador de estación pasó de 24 a 28 px y el
+símbolo de estación en la leyenda de 14 a 20 px. Los tipos sin pictograma (rombo) se ven como antes.

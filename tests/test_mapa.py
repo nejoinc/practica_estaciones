@@ -14,9 +14,10 @@ from pathlib import Path
 from main import main
 from estaciones.exacto import resolver
 from estaciones.lectura import cargar_instancia
-from estaciones.mapa import (clasificar_incidentes, contar_por_tipo, datos_del_mapa, exportar_html,
+from estaciones import mapa as modulo_mapa
+from estaciones.mapa import (LOGO_POR_TIPO, clasificar_incidentes, contar_por_tipo, datos_del_mapa, exportar_html,
                              fila_de_totales, filas_de_estaciones, json_para_html, leer_fechas,
-                             lotes_libres, tabla_csv)
+                             logo_de_tipo, lotes_libres, tabla_csv)
 from estaciones.modelo import Modelo
 from test_exacto import _escribir_csv
 
@@ -166,6 +167,73 @@ class MapaExportado(unittest.TestCase):
         self.assertNotIn("\u2028", texto)
         self.assertNotIn("\u2029", texto)
         self.assertLess(len(texto), 3 * len(json.dumps(datos)))
+
+
+def medidas_de_webp(contenido):
+    """(ancho, alto) de un WEBP leyendo su cabecera, sin librerías externas."""
+    bloque = contenido[12:16]
+    if bloque == b"VP8X":
+        ancho = int.from_bytes(contenido[24:27], "little") + 1
+        alto = int.from_bytes(contenido[27:30], "little") + 1
+        return ancho, alto
+    if bloque == b"VP8L":
+        bits = int.from_bytes(contenido[21:25], "little")
+        return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+    if bloque == b"VP8 ":
+        ancho = int.from_bytes(contenido[26:28], "little") & 0x3FFF
+        alto = int.from_bytes(contenido[28:30], "little") & 0x3FFF
+        return ancho, alto
+    raise ValueError("WEBP desconocido")
+
+
+class Logos(unittest.TestCase):
+    def test_logos_presentes_son_webp_de_128(self):
+        # El de la Policía existe; tránsito y bomberos pueden faltar (ver docs/DISENO.md).
+        self.assertIsNotNone(logo_de_tipo("hurto"))
+        for tipo, ruta_relativa in LOGO_POR_TIPO.items():
+            archivo = modulo_mapa.CARPETA_WEB / ruta_relativa
+            if not archivo.is_file():
+                self.assertIsNone(logo_de_tipo(tipo))
+                continue
+            contenido = archivo.read_bytes()
+            self.assertEqual(contenido[0:4], b"RIFF", ruta_relativa)
+            self.assertEqual(contenido[8:12], b"WEBP", ruta_relativa)
+            self.assertEqual(medidas_de_webp(contenido), (128, 128), ruta_relativa)
+            self.assertLess(len(contenido), 15 * 1024, ruta_relativa)
+
+    def test_tipo_sin_archivo_no_tiene_logo(self):
+        self.assertIsNone(logo_de_tipo("tipo-que-no-existe"))
+
+    def test_datos_del_mapa_llevan_la_ruta_del_logo(self):
+        datos = datos_del_mapa(Modelo(cargar_instancia("pequena")))
+        self.assertEqual(datos["tipos"][0]["logo"], "logos/policia.webp")
+
+    def test_exportado_incrusta_logos_como_data_uri(self):
+        modelo = Modelo(cargar_instancia("pequena"))
+        documento = exportar_html(modelo, resolver(modelo))
+        self.assertIn("data:image/webp;base64,", documento)
+        self.assertNotIn("logos/", documento)
+        for tipo in datos_incrustados(documento)["tipos"]:
+            if tipo["logo"] is not None:
+                self.assertTrue(tipo["logo"].startswith("data:image/webp;base64,"))
+
+    def test_exportado_no_apunta_a_archivos_locales(self):
+        modelo = Modelo(cargar_instancia("pequena"))
+        documento = exportar_html(modelo, resolver(modelo))
+        for rastro in ("file:", ".webp\"", "src=\"logos", "src=\"vendor", "href=\"mapa.css"):
+            self.assertNotIn(rastro, documento)
+
+
+class Pictogramas(unittest.TestCase):
+    def test_exportado_lleva_los_pictogramas_en_linea(self):
+        # Los pictogramas son SVG dentro de mapa.js, que va copiado en el HTML exportado.
+        modelo = Modelo(cargar_instancia("pequena"))
+        documento = exportar_html(modelo, resolver(modelo))
+        self.assertIn("const PICTOGRAMAS", documento)
+        self.assertEqual(documento.count('class="pictograma"'), 3)
+        for tipo in ("hurto", "accidente", "incendio"):
+            self.assertRegex(documento, tipo + r": '<path class=\"pictograma\" d=\"M")
+        self.assertIn(".marca .pictograma", documento)
 
 
 class SubcomandoParte4(unittest.TestCase):
