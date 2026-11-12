@@ -112,9 +112,10 @@ Diez frases que hay que saber decir:
 ### Respuesta sobre rendimiento en vivo
 
 En producción no se ejecutan sin límite la mejora local ni el exacto sobre
-`ciudad`: la API de Vercel les asigna como máximo 30 segundos y devuelve la
-mejor propuesta factible hallada. La comparación conserva los cuatro métodos,
-para poder estudiar cómo se comportan las heurísticas aunque se queden cortas.
+`ciudad`: ambos respetan el límite elegido por el usuario y devuelven la mejor
+propuesta factible hallada si el tiempo se agota. La comparación conserva los
+cuatro métodos, para poder estudiar cómo se comportan las heurísticas aunque
+se queden cortas.
 Así se separan dos afirmaciones: el exacto puede certificar optimalidad en
 instancias pequeñas, mientras en una instancia grande entrega una propuesta
 acotada en tiempo y honesta. Las mediciones y la política completa están en

@@ -35,7 +35,7 @@ py -m unittest discover -s tests                       tests
 Para Vercel, `api/index.py` expone la misma API mediante funciones serverless.
 La guía está en [docs/DESPLIEGUE_VERCEL.md](docs/DESPLIEGUE_VERCEL.md). En el
 despliegue público, las instancias de más de 30 lotes conservan los cuatro
-métodos; `propia_ls` y `exacto` tienen un límite efectivo de 30 segundos y
+métodos; `propia_ls` y `exacto` respetan el límite elegido por el usuario y
 entregan la mejor propuesta encontrada si no alcanzan a certificar.
 
 `parte4` imprime la tabla de estaciones y escribe un mapa HTML autocontenido (se abre con doble

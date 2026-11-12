@@ -101,12 +101,12 @@ rebanada puede agregar carga de archivos con límites y validación explícitos.
 
 ## Rendimiento y límites actuales
 
-- En instancias de más de 30 lotes, la API pública limita `propia_ls` y
-  `exacto` a 30 segundos como máximo. Devuelven la mejor propuesta factible
-  encontrada dentro de ese tiempo; el exacto no se presenta como certificado
-  si la búsqueda no termina.
+- En instancias de más de 30 lotes, la API pública conserva para `propia_ls` y
+  `exacto` el límite elegido en la interfaz. Devuelven la mejor propuesta
+  factible encontrada dentro de ese tiempo; el exacto no se presenta como
+  certificado si la búsqueda no termina.
 - En `ciudad`, `comparar` ejecuta los cuatro métodos. Las heurísticas rápidas
-  terminan antes y `propia_ls` y `exacto` comparten el límite de 30 segundos.
+  terminan antes y `propia_ls` y `exacto` comparten el límite elegido.
 - El estado de modelos y resultados es un caché oportunista de una instancia
   serverless; no se considera persistente.
 - `/api/exportar` recalcula si la petición cae en otra instancia que no tiene

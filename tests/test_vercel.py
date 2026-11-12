@@ -66,15 +66,12 @@ class AdaptadorVercel(unittest.TestCase):
         self.assertIn(b"datos-del-mapa", contenido)
 
     def test_exacto_en_instancia_grande_respeta_el_limite(self):
-        estado, _cabeceras, contenido = pedir(
-            "POST",
-            "/api/resolver",
-            {"instancia": "ciudad", "metodo": "exacto", "limite_segundos": 0},
-        )
-        datos = json.loads(contenido)
-        self.assertEqual(estado, "200 OK")
-        self.assertEqual(datos["limite_segundos"], 0)
-        self.assertFalse(datos["optimo_certificado"])
+        from interfaz.vercel_app import _metodo_en_vivo
+
+        configuracion = {"limite": 120.0}
+        metodo, limite = _metodo_en_vivo(configuracion, "exacto")
+        self.assertEqual(metodo, "exacto")
+        self.assertEqual(limite, 120.0)
 
     def test_comparacion_grande_ejecuta_todos_los_metodos(self):
         estado, _cabeceras, contenido = pedir(

@@ -29,8 +29,6 @@ from estaciones.ejecucion import METODOS, ejecutar_metodo
 _METODOS_CON_CUERPO = {"POST"}
 _LIMITE_CUERPO = 64 * 1024
 _ALMACEN = Almacen()
-_LOTES_GRANDES = 30
-_LIMITE_CIUDAD = 30.0
 _RAZONES = {
     200: "OK",
     400: "Bad Request",
@@ -110,10 +108,7 @@ def _configuracion_publica(cuerpo):
 
 
 def _metodo_en_vivo(configuracion, metodo):
-    """Aplica el límite de 30 s a búsquedas costosas en instancias grandes."""
-    cantidad_lotes = len(configuracion["modelo"].instancia.lotes)
-    if cantidad_lotes > _LOTES_GRANDES and metodo in ("exacto", "propia_ls"):
-        return metodo, min(configuracion["limite"], _LIMITE_CIUDAD)
+    """Conserva el límite elegido por el usuario para cualquier instancia."""
     return metodo, configuracion["limite"]
 
 
@@ -154,10 +149,9 @@ def _comparar(cuerpo):
             "tiempo_s": segundos,
             "optimo_certificado": esta_certificado(metodo_real, resultado),
         })
-    _, limite_comun = _metodo_en_vivo(configuracion, "exacto")
     return _json(200, {
         "instancia": configuracion["nombre"],
-        "limite_segundos": limite_comun,
+        "limite_segundos": configuracion["limite"],
         "filas": filas,
     })
 
